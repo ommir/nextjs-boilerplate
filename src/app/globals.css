@@ -1,0 +1,173 @@
+@import "tailwindcss";
+
+/*
+ * Studio design system — token layer.
+ * These values are the single source of truth documented in DESIGN_SYSTEM.md.
+ * Tailwind v4 turns every entry below into a utility (e.g. `--color-ink` -> `text-ink`,
+ * `--radius-lg` -> `rounded-lg`, `--text-display` -> `text-display`).
+ */
+
+/* Enable dark-mode utilities keyed to a `data-theme` attribute for future theming. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  /* ---- Neutrals ---------------------------------------------------------- */
+  --color-canvas: #f6f5f2;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f3f1ec;
+  --color-surface-hover: #f7f6f3;
+  --color-border-subtle: #eceae4;
+  --color-border: #e4e1da;
+  --color-border-strong: #d6d2c8;
+
+  /* ---- Ink (text) -------------------------------------------------------- */
+  --color-ink: #1b1a18;
+  --color-ink-secondary: #6c6a64;
+  --color-ink-muted: #9c998f;
+  --color-ink-inverse: #fbfaf8;
+
+  /* ---- Brand (monochrome) ------------------------------------------------ */
+  --color-brand: #1b1a18;
+  --color-brand-hover: #333029;
+
+  /* ---- Status ------------------------------------------------------------ */
+  --color-success: #2f9e68;
+  --color-success-soft: #e9f5ee;
+  --color-success-text: #1f7a4d;
+
+  --color-warning: #c98a2b;
+  --color-warning-soft: #fbf1df;
+  --color-warning-text: #9a6a18;
+
+  --color-danger: #d25050;
+  --color-danger-soft: #fbecec;
+  --color-danger-text: #a83b3b;
+
+  --color-info: #3d7cd1;
+  --color-info-soft: #e9f0fb;
+  --color-info-text: #2c5fa6;
+
+  /* ---- Typography -------------------------------------------------------- */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  --text-display: 28px;
+  --text-display--line-height: 1.15;
+  --text-display--letter-spacing: -0.02em;
+  --text-display--font-weight: 600;
+
+  --text-metric: 30px;
+  --text-metric--line-height: 1.08;
+  --text-metric--letter-spacing: -0.02em;
+  --text-metric--font-weight: 600;
+
+  --text-section: 15px;
+  --text-section--line-height: 1.3;
+  --text-section--letter-spacing: -0.01em;
+  --text-section--font-weight: 600;
+
+  --text-body: 14px;
+  --text-body--line-height: 1.5;
+
+  --text-body-sm: 13px;
+  --text-body-sm--line-height: 1.45;
+
+  --text-label: 11px;
+  --text-label--line-height: 1.2;
+  --text-label--letter-spacing: 0.06em;
+  --text-label--font-weight: 600;
+
+  --text-caption: 12px;
+  --text-caption--line-height: 1.4;
+
+  /* ---- Radius ------------------------------------------------------------ */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  /* ---- Elevation --------------------------------------------------------- */
+  --shadow-xs: 0 1px 2px rgba(24, 23, 21, 0.05);
+  --shadow-sm: 0 1px 2px rgba(24, 23, 21, 0.06), 0 1px 1px rgba(24, 23, 21, 0.04);
+  --shadow-pop: 0 8px 24px rgba(24, 23, 21, 0.1), 0 2px 6px rgba(24, 23, 21, 0.06);
+
+  /* ---- Motion ------------------------------------------------------------ */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ---- Layout ------------------------------------------------------------ */
+  --spacing-sidebar: 248px;
+}
+
+/* Base reset + document defaults --------------------------------------------- */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: var(--color-border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Tabular figures everywhere numbers matter. */
+  th,
+  td,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Visible, consistent focus for keyboard users. */
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-ink) 14%, transparent);
+  }
+}
+
+/* Thin, unobtrusive scrollbars that match the surface. */
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-strong) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: var(--color-border-strong);
+    border-radius: var(--radius-pill);
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
