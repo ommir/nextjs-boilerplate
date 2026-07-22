@@ -1,49 +1,141 @@
-import type { Metadata } from "next";
-import { StatCard } from "@/features/dashboard/components/StatCard";
-import { ProjectsTable } from "@/features/dashboard/components/ProjectsTable";
-import { ActivityFeed } from "@/features/dashboard/components/ActivityFeed";
-import { TeamCapacity } from "@/features/dashboard/components/TeamCapacity";
-import { RetainerBurn } from "@/features/dashboard/components/RetainerBurn";
-import { TimeRangeTabs } from "@/features/dashboard/components/TimeRangeTabs";
-import { stats } from "@/features/dashboard/data/mockDashboard";
+"use client";
 
-export const metadata: Metadata = { title: "Agency Operations" };
+import { useRef, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  Badge,
+  Button,
+  ConfirmDialog,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
+} from "@/components/ui";
+import { StockSignal } from "@/features/product/components/StockSignal";
+import { categoryMeta } from "@/features/product/lib/category";
+import { useDeleteProduct, useProducts } from "@/features/product/hooks/useProducts";
+import { formatCurrency } from "@/lib/utils";
+import type { Product } from "@/features/product/types";
 
-/** Overview — the showcase dashboard that mirrors the Studio reference. */
-export default function DashboardOverviewPage() {
+/** Dashboard Products CRUD index — the storefront catalog's admin surface. */
+export default function DashboardProductsPage() {
+  const { data: products, isLoading, isError, refetch } = useProducts();
+  const deleteProduct = useDeleteProduct();
+  const [pendingDelete, setPendingDelete] = useState<Product | null>(null);
+  // Focus lands here after a delete, since the row's own button is gone by then.
+  const newProductRef = useRef<HTMLAnchorElement>(null);
+
+  async function handleConfirmDelete() {
+    if (!pendingDelete) return;
+    await deleteProduct.mutateAsync(pendingDelete.id);
+    setPendingDelete(null);
+  }
+
   return (
-    <div className="flex flex-col gap-4">
-      {/* Page header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-body-sm text-ink-muted">Morning, Maxx</p>
-          <h1 className="text-display text-ink">Agency Operations · June 2026</h1>
-          <p className="mt-1 text-body-sm text-ink-secondary">
-            68% blended utilization · 31% avg project margin · 7 active clients ·{" "}
-            <span className="font-medium text-danger-text">2 retainers over budget</span>
-          </p>
+          <h1 className="text-display text-ink">Products</h1>
+          <p className="mt-1 text-body-sm text-ink-secondary">Manage the catalog shown on the storefront.</p>
         </div>
-        <TimeRangeTabs />
+        <Link href="/dashboard/products/new" ref={newProductRef}>
+          <Button>
+            <Plus className="size-4" aria-hidden />
+            New product
+          </Button>
+        </Link>
       </div>
 
-      {/* Metric row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <StatCard key={stat.id} stat={stat} />
-        ))}
-      </div>
+      {isLoading ? (
+        <LoadingState label="Loading products…" />
+      ) : isError ? (
+        <ErrorState onRetry={() => refetch()} />
+      ) : !products || products.length === 0 ? (
+        <EmptyState
+          title="No products yet"
+          description="Create your first product to populate the storefront catalog."
+          action={
+            <Link href="/dashboard/products/new">
+              <Button>New product</Button>
+            </Link>
+          }
+        />
+      ) : (
+        <Table>
+          <THead>
+            <TR className="hover:bg-transparent">
+              <TH className="w-14 pl-5" />
+              <TH>Product</TH>
+              <TH align="right">Price</TH>
+              <TH>Stock</TH>
+              <TH className="pr-5" />
+            </TR>
+          </THead>
+          <TBody>
+            {products.map((product) => (
+              <TR key={product.id}>
+                <TD className="pl-5">
+                  <div className="relative size-10 overflow-hidden rounded-md bg-surface-muted">
+                    <Image src={product.imageUrl} alt="" fill sizes="40px" className="object-cover" />
+                  </div>
+                </TD>
+                <TD>
+                  <span className="font-semibold text-ink">{product.name}</span>
+                  <span className="mt-1 flex items-center gap-1.5">
+                    <Badge tone={categoryMeta[product.category].tone}>{categoryMeta[product.category].label}</Badge>
+                  </span>
+                </TD>
+                <TD align="right" className="tabular text-ink">
+                  {formatCurrency(product.price)}
+                </TD>
+                <TD>
+                  <StockSignal stock={product.stock} />
+                </TD>
+                <TD className="pr-5">
+                  <div className="flex items-center justify-end gap-1">
+                    <Link
+                      href={`/dashboard/products/${product.id}/edit`}
+                      aria-label={`Edit ${product.name}`}
+                      className="flex size-8 items-center justify-center rounded-sm text-ink-secondary transition-colors hover:bg-surface-hover hover:text-ink"
+                    >
+                      <Pencil className="size-4" aria-hidden />
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => setPendingDelete(product)}
+                      aria-label={`Delete ${product.name}`}
+                      className="flex size-8 items-center justify-center rounded-sm text-ink-secondary transition-colors hover:bg-danger-soft hover:text-danger-text"
+                    >
+                      <Trash2 className="size-4" aria-hidden />
+                    </button>
+                  </div>
+                </TD>
+              </TR>
+            ))}
+          </TBody>
+        </Table>
+      )}
 
-      {/* Two-column operations grid */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="flex flex-col gap-4 lg:col-span-2">
-          <ProjectsTable />
-          <TeamCapacity />
-        </div>
-        <div className="flex flex-col gap-4">
-          <ActivityFeed />
-          <RetainerBurn />
-        </div>
-      </div>
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete product"
+        description={
+          pendingDelete ? `"${pendingDelete.name}" will be removed from the catalog. This can't be undone.` : undefined
+        }
+        confirmLabel="Delete"
+        tone="danger"
+        isConfirming={deleteProduct.isPending}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setPendingDelete(null)}
+        restoreFocusRef={newProductRef}
+      />
     </div>
   );
 }

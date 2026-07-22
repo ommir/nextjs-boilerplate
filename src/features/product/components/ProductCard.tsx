@@ -3,24 +3,17 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 import { Badge } from "@/components/ui";
 import { formatCurrency } from "@/lib/utils";
-import type { Product, ProductCategory } from "../types";
-import type { StatusTone } from "@/types/global";
+import { categoryMeta } from "../lib/category";
+import { StockSignal } from "./StockSignal";
+import type { Product } from "../types";
 
-const categoryMeta: Record<ProductCategory, { label: string; tone: StatusTone }> = {
-  template: { label: "Template", tone: "neutral" },
-  plugin: { label: "Plugin", tone: "info" },
-  asset: { label: "Asset", tone: "warning" },
-  service: { label: "Service", tone: "success" },
-};
-
-/** Presentational grid card. Links through to the product detail route. */
+/** Presentational grid card. Links through to the public product page. */
 export function ProductCard({ product }: { product: Product }) {
   const meta = categoryMeta[product.category];
-  const isOutOfStock = product.stock === 0;
 
   return (
     <Link
-      href={`/dashboard/products/${product.id}`}
+      href={`/products/${product.id}`}
       className="group flex flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-xs transition-shadow hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
     >
       <div className="relative aspect-[16/10] overflow-hidden bg-surface-muted">
@@ -47,11 +40,7 @@ export function ProductCard({ product }: { product: Product }) {
         <p className="line-clamp-2 flex-1 text-body-sm text-ink-secondary">{product.summary}</p>
         <div className="mt-1 flex items-center justify-between">
           <span className="text-body font-semibold text-ink tabular">{formatCurrency(product.price)}</span>
-          {isOutOfStock ? (
-            <Badge tone="danger">Sold out</Badge>
-          ) : (
-            <span className="text-caption text-ink-muted">{product.stock} in stock</span>
-          )}
+          <StockSignal stock={product.stock} />
         </div>
       </div>
     </Link>

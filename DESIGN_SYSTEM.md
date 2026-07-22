@@ -2,9 +2,12 @@
 
 > The visual language for this boilerplate, reverse-engineered from the **Studio ·
 > Agency Operations** dashboard reference. It is a calm, data-dense, light-first
-> operations aesthetic: warm off-white canvas, crisp white surfaces, hairline
-> borders, a near-black monochrome brand, and small semantic accents used only to
-> signal state.
+> aesthetic: warm off-white canvas, crisp white surfaces, hairline borders, a
+> near-black monochrome brand, and small semantic accents used only to signal
+> state. The system has since grown beyond that original dashboard to cover a
+> public storefront (catalog, product page, cart, checkout) and a Products CRUD
+> admin — same tokens throughout; see §8.10–8.15 for the storefront/admin specs,
+> and §8.2/8.5/8.6/8.7 for specs reserved from the original dashboard.
 >
 > Every token below is implemented as a CSS custom property in
 > [`src/app/globals.css`](./src/app/globals.css) and exposed to Tailwind v4 via the
@@ -88,13 +91,20 @@ a progress bar uses the _base_. Utilization/burn bars escalate by value:
 
 | Role         | Token class    | Size / Line       | Weight | Tracking  | Example in reference        |
 | ------------ | -------------- | ----------------- | ------ | --------- | --------------------------- |
-| Display      | `text-display` | `28px / 1.15`     | 600    | `-0.02em` | "Agency Operations · June 2026" |
-| Metric       | `text-metric`  | `30px / 1.1`      | 600    | `-0.02em` | "68%", "84%"                |
-| Section head | `text-section` | `15px / 1.3`      | 600    | `-0.01em` | "Projects By Client"        |
+| Hero         | `text-hero`    | `clamp(2.25rem,1.5rem+3.5vw,3.75rem) / 1.05` | 600 | `-0.03em` | Storefront landing headline |
+| Display      | `text-display` | `28px / 1.15`     | 600    | `-0.02em` | "Products" (dashboard), page titles |
+| Metric       | `text-metric`  | `30px / 1.1`      | 600    | `-0.02em` | Product price, checkout total |
+| Section head | `text-section` | `15px / 1.3`      | 600    | `-0.01em` | "Order summary", card headers |
 | Body         | `text-body`    | `14px / 1.5`      | 400    | `0`       | Card labels, nav items      |
 | Body small   | `text-body-sm` | `13px / 1.45`     | 400    | `0`       | Table cells                 |
-| Label        | `text-label`   | `11px / 1.2`      | 600    | `0.06em` uppercase | "PROJECT", "MAIN MENU" |
-| Caption      | `text-caption` | `12px / 1.4`      | 400    | `0`       | "Now · 10:48"               |
+| Label        | `text-label`   | `11px / 1.2`      | 600    | `0.06em` uppercase | "MAIN MENU", spec-row keys |
+| Caption      | `text-caption` | `12px / 1.4`      | 400    | `0`       | Stock signal, timestamps    |
+
+`text-hero` is the one addition beyond the original reverse-engineered scale —
+a single size above `text-display` for the storefront landing headline, sized
+with `clamp()` so it scales fluidly instead of jumping at breakpoints.
+Extending the scale by one step is in the system's spirit; adding a second
+font family would not be (§3 stays Inter-only — see §8.10).
 
 Only two weights are used across the whole system: **400** (regular) and **600**
 (semibold). Avoid 500 and 700 to keep the type feeling consistent.
@@ -181,6 +191,12 @@ text; inactive = `--color-ink-secondary`, hovering to `--color-surface-hover`.
 Count badges are muted pills aligned right.
 
 ### 8.2 Stat Card
+
+> **Reserved — documented but not currently used.** Shipped with the original
+> Agency Operations dashboard reference, removed along with it when the
+> boilerplate repositioned around a storefront + Products CRUD. Kept here as
+> a spec, not deleted, in case a future metrics view needs it.
+
 `--color-surface`, `--radius-lg`, `1px` border, `20px` padding. Top: `text-label`
 caption ("Billable Utilization"). Middle: `text-metric` value. Bottom: a **delta**
 row — a directional arrow + magnitude + comparison ("vs last month"), tinted by
@@ -198,16 +214,35 @@ columns are right-aligned and tabular. A leading index column (1, 2, 3…) uses
   weight 600. Always pairs a dot or label with meaning — never color alone.
 
 ### 8.5 Progress / Burn Bar
+
+> **Reserved — component still exists (`components/ui/ProgressBar.tsx`,
+> tested), but has no current consumer** now that the Agency Operations
+> dashboard it was built for is gone. Reuse it for any future utilization/burn
+> visualization — the escalation rule below is exactly what the Stock Signal
+> (§8.11) mirrors for inventory (success/warning/danger, inverted for "how
+> much is left" instead of "how much is used").
+
 Track = `--color-surface-muted`, height `6px`, `--radius-pill`. Fill color follows
 the escalation rule (§2.4). The numeric percentage sits to the right in
 `text-body-sm`, tabular.
 
 ### 8.6 Activity Feed
+
+> **Reserved — documented but not currently used.** Removed with the Agency
+> Operations dashboard; kept as a spec for a future notifications/activity
+> surface.
+
 Vertical list of events; each row = a small mono icon, a **bold title** fragment +
 secondary detail (`text-body-sm`), and a `text-caption` timestamp in `--color-ink-muted`.
 The most recent item may carry a status pill (e.g. "Now 124%").
 
 ### 8.7 Segmented Control (time range)
+
+> **Reserved — documented but not currently used.** Removed with the Agency
+> Operations dashboard; the underlying pill-group pattern lives on in the
+> storefront's category filter pills (`ProductList`) and the Sidebar's
+> active-item styling.
+
 A pill group ("This Week / Next Week / This Month / This Quarter"). The selected
 segment gets `--color-surface` fill + `--shadow-xs` + `--color-ink`; the track is
 `--color-surface-muted`; unselected labels are `--color-ink-secondary`.
@@ -225,6 +260,71 @@ segment gets `--color-surface` fill + `--shadow-xs` + `--color-ink`; the track i
 `36px` tall, `--color-surface` fill, `1px` border, `--radius-sm`, `text-body-sm`.
 Placeholder `--color-ink-muted`. Focus → `--color-border-strong` border + a `2px`
 focus ring in `--color-ink` at low opacity. Never remove focus outlines.
+
+### 8.10 Storefront Hero
+Centered, max-width constrained, generous vertical rhythm on `--color-canvas` —
+no gradient, no decorative background flourish (§1.2: structure comes from
+hairlines and whitespace, not effects). `text-hero` headline, `text-body` /
+`--color-ink-secondary` subhead, one primary button. A deliberately familiar
+commerce layout: the boilerplate's job is to be immediately recognizable and
+easy to adapt, not to impose an art direction every adopter has to undo.
+Stays Inter-only, per §3 — no second typeface was introduced for the storefront.
+
+### 8.11 Catalog Card & Stock Signal
+Catalog card: image (`aspect-[16/10]`), category badge overlaid top-left,
+name (`text-body`, weight 600) + rating, summary (`text-body-sm`,
+`--color-ink-secondary`, 2-line clamp), then price (tabular) and the **Stock
+Signal** aligned on one row. Hover: border `--color-border` →
+`--color-border-strong`, image `scale(1.03)`.
+
+**Stock Signal** reuses the §2.4 status tokens, inverted for inventory instead
+of utilization:
+
+| Stock | Tone | Reads as |
+| ----- | ---- | -------- |
+| `> 10` | success | "In stock" |
+| `1–10` | warning | "Only *n* left" |
+| `0` | danger | "Sold out" |
+
+Always a dot + label together (§9: never color alone). Same component is
+reused on the product page, the cart drawer's line items, and the dashboard
+Products table — one signal, one place it's defined
+(`features/product/components/StockSignal.tsx`).
+
+### 8.12 Product Page Spec Table
+Two-column buy layout — image left, identity + price (`text-metric`, tabular)
++ Stock Signal + primary "Add to cart" right. Below the buy box, a hairline
+key/value table (Category · Rating · Availability) styled like §8.3's Data
+Table: `text-label` keys, `text-body-sm` values, `--color-border-subtle` row
+dividers, no outer header row since there's only one column of data.
+
+### 8.13 Cart Drawer
+Right slide-over, `--shadow-pop` (the token reserved for "things that truly
+float," §5 — its first real use). Line items with quantity steppers and a
+remove control; subtotal in `text-metric`, tabular; a primary "Check out"
+button. Empty state is an invitation ("Nothing in the cart yet" + a link back
+to the catalog), not a bare icon.
+
+Accessibility: focus-trapped while open, closes on `Escape`, restores focus to
+whatever opened it on close. Stays in the DOM off-screen (`translate-x-full`)
+for the slide transition, marked `inert` while closed rather than unmounted —
+`inert` (not visual hiding) is what removes it from the tab order and a11y
+tree; a plain "hidden" CSS check will not catch this state.
+
+### 8.14 Checkout Summary
+Single-column order summary — line items, subtotal, total (`text-metric`).
+Email field plus an explicit demo notice; **deliberately no payment fields,
+not even fake ones** — a payment-shaped form in a template someone will clone
+invites it to be wired up as though it were real. Confirmation state shows a
+generated order reference and clears the cart.
+
+### 8.15 Confirm Dialog
+Centered modal (as opposed to the Cart Drawer's slide-over — there's no exit
+transition to preserve, so it unmounts on close rather than going `inert`).
+Same focus-trap / `Escape` / focus-restore contract as §8.13. Title +
+description, Cancel + primary action; destructive actions (e.g. delete a
+product) use the `danger` Button variant so the action's weight is visible,
+not just named.
 
 ---
 

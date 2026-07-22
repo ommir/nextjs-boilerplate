@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutGrid, LogOut, Search } from "lucide-react";
+import { ExternalLink, LayoutGrid, LogOut, Search } from "lucide-react";
 import { Avatar } from "@/components/ui";
 import { navSections } from "@/config/nav";
 import { siteConfig } from "@/config/site";
@@ -78,6 +78,19 @@ export function Sidebar() {
               ⌘K
             </kbd>
           </button>
+        </div>
+
+        {/* View storefront — deliberately outside the nav loop below so it never
+            gets the active-item highlight (its href, "/", would otherwise match
+            every dashboard path under isItemActive's startsWith check). */}
+        <div className="px-3 pb-2">
+          <Link
+            href="/"
+            className="flex h-9 items-center gap-2 rounded-sm px-2.5 text-body-sm text-ink-secondary transition-colors hover:bg-surface-hover hover:text-ink"
+          >
+            <ExternalLink className="size-4 shrink-0" aria-hidden />
+            View storefront
+          </Link>
         </div>
 
         {/* Navigation */}

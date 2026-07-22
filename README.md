@@ -1,9 +1,9 @@
 # Studio — Next.js Frontend Boilerplate
 
 A production-ready, **feature-based** Next.js frontend boilerplate. It ships a real
-authenticated dashboard (reverse-engineered from the _Studio · Agency Operations_
-reference), a CRUD product module, typed data plumbing, and a fully documented
-design system — so you start from a working foundation, not a blank `app/`.
+public **storefront** (catalog, product page, cart, checkout) plus an authenticated
+**Products CRUD admin**, typed data plumbing, and a fully documented design system —
+so you start from a working foundation, not a blank `app/`.
 
 > **Runs with zero backend.** When `NEXT_PUBLIC_API_URL` is left as the placeholder,
 > every service serves in-memory mock data. Point it at a real API and the same
@@ -19,8 +19,9 @@ design system — so you start from a working foundation, not a blank `app/`.
 | **Styling**       | Tailwind CSS v4 with a token-first `@theme` design system                   |
 | **State**         | Zustand (primary) · Redux Toolkit (optional example) · React Query (server) |
 | **Auth**          | Signed HttpOnly session cookie via Route Handlers, Zustand profile store, middleware + server guard, RBAC |
-| **Dashboard**     | Sidebar + header shell, metric cards, data tables, activity feed, burn bars |
-| **Product module**| List with filter/search + detail, loading / error / empty states            |
+| **Storefront**    | Public catalog + filter/search, product page, persisted cart drawer, mock checkout |
+| **Dashboard**     | Products CRUD — sortable table, create/edit forms, delete confirmation, RBAC-gated Settings |
+| **Product data**  | React Query hooks → service → typed models; localStorage-backed mock CRUD; loading / error / empty states |
 | **DX**            | Absolute imports (`@/*`), ESLint, Prettier, typed API client                |
 | **Design system** | [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md) — the single source of truth for tokens |
 
@@ -39,8 +40,11 @@ cp .env.example .env.local        # runs in mock mode if you skip this
 npm run dev                       # http://localhost:3000
 ```
 
-You'll land on the login screen with **demo credentials pre-filled** — click
-**Sign in** to enter the dashboard. Any email/password works in mock mode.
+You'll land on the public **storefront** — browse the catalog, open a product,
+add it to cart, and check out (a mock flow — no payment is ever collected).
+Visit `/login` for the admin side: **demo credentials are pre-filled**, and any
+email/password works in mock mode. Signing in lands you on `/dashboard`, the
+Products CRUD admin that manages the same catalog the storefront reads from.
 
 ### Scripts
 
@@ -63,19 +67,22 @@ cross-cutting code lives at the top level.
 ```
 src/
 ├── app/                      # Routes (App Router)
+│   ├── (storefront)/         #   route group: public landing, /products/[id], /checkout
 │   ├── (auth)/               #   route group: login, register
-│   ├── dashboard/            #   protected shell + overview, products, stubs
+│   ├── api/auth/              #   route handlers: login, register, logout, me
+│   ├── dashboard/            #   protected shell + Products CRUD (index, new, [id]/edit, settings)
 │   ├── layout.tsx            #   root layout + fonts + providers
 │   ├── providers.tsx         #   React Query (client)
 │   └── globals.css           #   design tokens (@theme) — see DESIGN_SYSTEM.md
 ├── features/                 # Self-contained domains
-│   ├── auth/                 #   components · hooks · services · store · guards · types
-│   ├── product/              #   components · hooks · services · data · types
-│   └── dashboard/            #   components · data · types
+│   ├── auth/                 #   components · hooks · services · store · types
+│   ├── product/              #   components · hooks · services · data · lib · types
+│   └── cart/                 #   store (Zustand + persist) · drawer · checkout components
 ├── components/
-│   ├── ui/                   # Reusable primitives (Button, Card, Table, Badge…)
-│   └── shared/               # App chrome (Sidebar, Header)
-├── lib/                      # api-client, query-client, cookies, utils
+│   ├── ui/                   # Reusable primitives (Button, Card, Table, Badge, ConfirmDialog…)
+│   ├── shared/               # Dashboard chrome (Sidebar, Header)
+│   └── storefront/           # Public chrome (StorefrontHeader, StorefrontFooter)
+├── lib/                      # api-client, query-client, cookies, session, utils
 ├── hooks/                    # Generic hooks (useMediaQuery, useLocalStorage)
 ├── store/                    # ui-store (Zustand) + redux/ (optional example)
 ├── config/                   # env, site, nav
@@ -99,11 +106,12 @@ Three concerns, three tools — never duplicate server state into a client store
 | Concern       | Tool                    | Example                                  |
 | ------------- | ----------------------- | ---------------------------------------- |
 | Server state  | **React Query**         | `features/product/hooks/useProducts.ts`  |
-| Client/global | **Zustand**             | `features/auth/store`, `store/ui-store`  |
+| Client/global | **Zustand**             | `features/auth/store`, `features/cart/store`, `store/ui-store` |
 | Complex/enterprise | **Redux Toolkit** _(optional)_ | `store/redux/*` (not mounted by default) |
 
 Zustand stores are **feature-modularized** and use `persist` for durable slices
-(session, theme). See `store/ui-store.ts` and `features/auth/store/authStore.ts`.
+(session profile, cart, theme). See `store/ui-store.ts`, `features/auth/store/authStore.ts`,
+and `features/cart/store/cartStore.ts`.
 
 To adopt Redux, wrap the tree with `ReduxProvider` (see `store/redux/ReduxProvider.tsx`).
 
@@ -131,12 +139,38 @@ To adopt Redux, wrap the tree with `ReduxProvider` (see `store/redux/ReduxProvid
 
 ---
 
-## 🛍️ Product Module
+## 🛍️ Storefront & Cart
 
-`/dashboard/products` (list, with category filter + search) and
-`/dashboard/products/[id]` (detail). Demonstrates the full data lifecycle:
-React Query hooks → service → typed models, with **loading / error / empty**
-states and skeletons.
+Public, no auth required:
+
+- **`/`** — landing hero + catalog grid (category filter + search), reusing the
+  same `ProductList` container the dashboard's data lifecycle demonstrates.
+- **`/products/[id]`** — product page: image, price, **Stock Signal**
+  (§8.11 in `DESIGN_SYSTEM.md` — reuses the design system's own success/warning/danger
+  escalation tokens, inverted for inventory), spec table, "recently viewed"
+  (`useLocalStorage`), add-to-cart.
+- **Cart** (`features/cart`) — persisted Zustand store; a focus-trapped,
+  `Esc`-closing drawer; quantity steppers; subtotal.
+- **`/checkout`** — order summary + a **mock** place-order flow. No payment
+  fields, not even fake ones — see `DESIGN_SYSTEM.md` §8.14 for why.
+
+## 🛠️ Dashboard: Products CRUD
+
+`/dashboard` (protected) is a full create/read/update/delete example over the
+same product catalog the storefront reads from:
+
+- **Index** — sortable table (thumbnail, price, Stock Signal, row actions).
+- **`/dashboard/products/new`** / **`/dashboard/products/[id]/edit`** — shared
+  `ProductForm`, validated at the boundary (required fields, non-negative
+  price/stock).
+- **Delete** — `ConfirmDialog` (same focus-trap contract as the cart drawer),
+  `danger`-variant confirm.
+- **Persistence** — mock mode backs `productService` with a localStorage-seeded
+  catalog, so create/update/delete survive a reload with zero backend. Mutations
+  use React Query with optimistic updates + rollback (`features/product/hooks/useProducts.ts`).
+
+Both surfaces share one data lifecycle: React Query hooks → service → typed
+models, with **loading / error / empty** states throughout.
 
 ---
 
@@ -181,7 +215,10 @@ of overriding `--color-*` values — no component changes.
 
 ## 📦 Next Steps
 
-1. Replace mock services with your API (set `NEXT_PUBLIC_API_URL`).
-2. Swap the demo auth for real, HttpOnly-cookie sessions.
-3. Build out the stubbed sections under `src/features/*` and route them in.
+1. Replace mock services with your API (set `NEXT_PUBLIC_API_URL`); `productService`'s
+   real-API branch is already wired for `list`/`getById`/`create`/`update`/`remove`.
+2. Swap `mockAuthBackend.ts`'s validation for a real user lookup, and a vetted
+   session library (NextAuth, Lucia, Iron Session) in place of `lib/session.ts`.
+3. Wire `/checkout` to a real payment provider if you need one — it's
+   deliberately a mock today (see `DESIGN_SYSTEM.md` §8.14).
 4. Fill in dark-theme token values in `globals.css` if you want a dark mode.

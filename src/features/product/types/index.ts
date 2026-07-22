@@ -18,3 +18,6 @@ export interface ProductListParams {
   category?: ProductCategory;
   search?: string;
 }
+
+/** Shape accepted by create/update — everything but the server-assigned id. */
+export type ProductInput = Omit<Product, "id">;

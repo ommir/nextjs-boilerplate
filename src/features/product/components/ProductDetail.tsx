@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, Check, ShoppingCart, Star } from "lucide-react";
-import { Badge, Button, Card, ErrorState, LoadingState } from "@/components/ui";
+import { ArrowLeft, Star } from "lucide-react";
+import { Badge, Card, ErrorState, LoadingState } from "@/components/ui";
+import { AddToCartButton } from "@/features/cart/components/AddToCartButton";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { formatCurrency } from "@/lib/utils";
+import { categoryMeta } from "../lib/category";
+import { StockSignal } from "./StockSignal";
 import { useProduct } from "../hooks/useProducts";
 
 const RECENTLY_VIEWED_KEY = "studio-recently-viewed-products";
@@ -18,7 +21,7 @@ function RecentlyViewedLink({ id }: { id: string }) {
 
   return (
     <Link
-      href={`/dashboard/products/${product.id}`}
+      href={`/products/${product.id}`}
       className="shrink-0 rounded-sm border border-border bg-surface px-2.5 py-1 text-caption font-semibold text-ink-secondary transition-colors hover:bg-surface-hover hover:text-ink"
     >
       {product.name}
@@ -26,9 +29,18 @@ function RecentlyViewedLink({ id }: { id: string }) {
   );
 }
 
+/** Spec row for the details table — a hairline key/value pair (DESIGN_SYSTEM.md §8.3). */
+function SpecRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between border-b border-border-subtle py-2.5 last:border-0">
+      <span className="text-label text-ink-muted uppercase">{label}</span>
+      <span className="text-body-sm text-ink">{value}</span>
+    </div>
+  );
+}
+
 export function ProductDetail({ productId }: { productId: string }) {
   const { data: product, isLoading, isError, refetch } = useProduct(productId);
-  const [added, setAdded] = useState(false);
   const [recentlyViewed, setRecentlyViewed] = useLocalStorage<string[]>(RECENTLY_VIEWED_KEY, []);
 
   useEffect(() => {
@@ -53,16 +65,13 @@ export function ProductDetail({ productId }: { productId: string }) {
   const otherRecentlyViewed = recentlyViewed.filter((id) => id !== product.id);
 
   return (
-    <div className="flex flex-col gap-5">
-      <Link
-        href="/dashboard/products"
-        className="inline-flex items-center gap-1.5 text-body-sm text-ink-secondary hover:text-ink"
-      >
+    <div className="flex flex-col gap-8">
+      <Link href="/#catalog" className="inline-flex items-center gap-1.5 text-body-sm text-ink-secondary hover:text-ink">
         <ArrowLeft className="size-4" aria-hidden />
-        Back to products
+        Back to catalog
       </Link>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         <Card flush className="overflow-hidden">
           <div className="relative aspect-[16/10] bg-surface-muted">
             <Image
@@ -79,7 +88,7 @@ export function ProductDetail({ productId }: { productId: string }) {
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <Badge tone="info">{product.category}</Badge>
+              <Badge tone={categoryMeta[product.category].tone}>{categoryMeta[product.category].label}</Badge>
               <span className="flex items-center gap-1 text-caption text-ink-secondary">
                 <Star className="size-3.5 fill-warning text-warning" aria-hidden />
                 {product.rating.toFixed(1)}
@@ -89,36 +98,17 @@ export function ProductDetail({ productId }: { productId: string }) {
             <p className="text-body text-ink-secondary">{product.summary}</p>
           </div>
 
-          <div className="flex items-baseline gap-3">
+          <div className="flex flex-col gap-1.5">
             <span className="text-metric text-ink tabular">{formatCurrency(product.price)}</span>
-            {isOutOfStock ? (
-              <Badge tone="danger">Sold out</Badge>
-            ) : (
-              <span className="text-body-sm text-ink-muted">{product.stock} available</span>
-            )}
+            <StockSignal stock={product.stock} />
           </div>
 
-          <p className="text-body-sm leading-relaxed text-ink-secondary">{product.description}</p>
+          <AddToCartButton productId={product.id} disabled={isOutOfStock} className="w-fit min-w-40" />
 
-          <div className="mt-1 flex gap-2">
-            <Button
-              onClick={() => setAdded(true)}
-              disabled={isOutOfStock || added}
-              className="min-w-40"
-            >
-              {added ? (
-                <>
-                  <Check className="size-4" aria-hidden /> Added
-                </>
-              ) : (
-                <>
-                  <ShoppingCart className="size-4" aria-hidden /> Add to cart
-                </>
-              )}
-            </Button>
-            <Button variant="secondary" disabled={isOutOfStock}>
-              Buy now
-            </Button>
+          <div className="mt-2 rounded-lg border border-border bg-surface px-4">
+            <SpecRow label="Category" value={categoryMeta[product.category].label} />
+            <SpecRow label="Rating" value={`${product.rating.toFixed(1)} / 5`} />
+            <SpecRow label="Availability" value={isOutOfStock ? "Sold out" : `${product.stock} in stock`} />
           </div>
 
           {otherRecentlyViewed.length > 0 && (
@@ -132,6 +122,11 @@ export function ProductDetail({ productId }: { productId: string }) {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="max-w-3xl">
+        <h2 className="mb-2 text-section text-ink">About this product</h2>
+        <p className="text-body-sm leading-relaxed text-ink-secondary">{product.description}</p>
       </div>
     </div>
   );

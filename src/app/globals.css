@@ -51,6 +51,11 @@
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
+  --text-hero: clamp(2.25rem, 1.5rem + 3.5vw, 3.75rem);
+  --text-hero--line-height: 1.05;
+  --text-hero--letter-spacing: -0.03em;
+  --text-hero--font-weight: 600;
+
   --text-display: 28px;
   --text-display--line-height: 1.15;
   --text-display--letter-spacing: -0.02em;

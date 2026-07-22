@@ -1,16 +1,4 @@
-import {
-  BarChart3,
-  Building2,
-  Gauge,
-  LayoutGrid,
-  LifeBuoy,
-  Package,
-  Percent,
-  Repeat,
-  Settings,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
+import { Package, Settings, type LucideIcon } from "lucide-react";
 import type { UserRole } from "@/features/auth/types";
 
 export interface NavItem {
@@ -30,28 +18,18 @@ export interface NavSection {
 }
 
 /**
- * Sidebar navigation. Mirrors the Studio reference layout. "Overview" is the
- * showcase dashboard and "Products" is the bundled CRUD module; the remaining
- * items render a shared stub page so the navigation stays complete.
+ * Dashboard navigation. The storefront (`/`) owns product browsing; this
+ * admin area is scoped to the Products CRUD example plus one role-gated
+ * settings stub demonstrating role-based nav filtering.
  */
 export const navSections: NavSection[] = [
   {
     title: "Main Menu",
-    items: [
-      { label: "Overview", href: "/dashboard", icon: LayoutGrid },
-      { label: "Products", href: "/dashboard/products", icon: Package, badge: 7 },
-      { label: "Clients", href: "/dashboard/clients", icon: Building2, badge: 9 },
-      { label: "People", href: "/dashboard/people", icon: Users, badge: 64 },
-      { label: "Capacity", href: "/dashboard/capacity", icon: Gauge },
-      { label: "Margin", href: "/dashboard/margin", icon: Percent },
-      { label: "Retainers", href: "/dashboard/retainers", icon: Repeat },
-      { label: "Reports", href: "/dashboard/reports", icon: BarChart3 },
-    ],
+    items: [{ label: "Products", href: "/dashboard", icon: Package }],
   },
   {
     title: "Manage",
     items: [
-      { label: "Help Center", href: "/dashboard/help", icon: LifeBuoy },
       // Admins only — demonstrates role-based nav filtering.
       { label: "Settings", href: "/dashboard/settings", icon: Settings, roles: ["admin"] },
     ],

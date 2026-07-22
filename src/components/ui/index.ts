@@ -9,3 +9,4 @@ export { ProgressBar } from "./ProgressBar";
 export { Spinner, LoadingState } from "./Spinner";
 export { EmptyState } from "./EmptyState";
 export { ErrorState } from "./ErrorState";
+export { ConfirmDialog } from "./ConfirmDialog";

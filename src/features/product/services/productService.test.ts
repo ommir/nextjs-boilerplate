@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/utils", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/utils")>();
@@ -6,6 +6,12 @@ vi.mock("@/lib/utils", async (importOriginal) => {
 });
 
 const { productService } = await import("./productService");
+
+// Every mock-mode call reads/writes the localStorage-backed catalog, so tests
+// must not leak state into one another.
+beforeEach(() => {
+  window.localStorage.clear();
+});
 
 describe("productService.list", () => {
   it("returns the full catalog with no filters", async () => {
@@ -47,5 +53,76 @@ describe("productService.getById", () => {
     await expect(productService.getById("does-not-exist")).rejects.toThrow(
       /was not found/,
     );
+  });
+});
+
+const NEW_PRODUCT_INPUT = {
+  name: "Test Widget Kit",
+  summary: "A widget kit for testing.",
+  description: "Full description.",
+  category: "template" as const,
+  price: 42,
+  stock: 7,
+  imageUrl: "https://example.com/widget.png",
+  rating: 0,
+};
+
+describe("productService.create", () => {
+  it("assigns a new id and adds the product to the catalog", async () => {
+    const before = await productService.list();
+    const created = await productService.create(NEW_PRODUCT_INPUT);
+
+    expect(created.id).toBeTruthy();
+    expect(created.name).toBe("Test Widget Kit");
+
+    const after = await productService.list();
+    expect(after).toHaveLength(before.length + 1);
+    expect(after.some((p) => p.id === created.id)).toBe(true);
+  });
+
+  it("persists the new product so a later read sees it", async () => {
+    const created = await productService.create(NEW_PRODUCT_INPUT);
+    const fetched = await productService.getById(created.id);
+    expect(fetched).toEqual(created);
+  });
+});
+
+describe("productService.update", () => {
+  it("replaces the product's fields without changing its id", async () => {
+    const created = await productService.create(NEW_PRODUCT_INPUT);
+    const updated = await productService.update(created.id, { ...NEW_PRODUCT_INPUT, name: "Renamed Kit", price: 99 });
+
+    expect(updated.id).toBe(created.id);
+    expect(updated.name).toBe("Renamed Kit");
+    expect(updated.price).toBe(99);
+  });
+
+  it("does not mutate the previous object it read", async () => {
+    const created = await productService.create(NEW_PRODUCT_INPUT);
+    const before = await productService.getById(created.id);
+    await productService.update(created.id, { ...NEW_PRODUCT_INPUT, name: "Renamed Kit" });
+
+    expect(before.name).toBe("Test Widget Kit");
+  });
+
+  it("throws for a missing id", async () => {
+    await expect(productService.update("does-not-exist", NEW_PRODUCT_INPUT)).rejects.toThrow(/was not found/);
+  });
+});
+
+describe("productService.remove", () => {
+  it("removes the product from the catalog", async () => {
+    const created = await productService.create(NEW_PRODUCT_INPUT);
+    await productService.remove(created.id);
+
+    const after = await productService.list();
+    expect(after.some((p) => p.id === created.id)).toBe(false);
+  });
+
+  it("makes a later getById for the same id throw", async () => {
+    const created = await productService.create(NEW_PRODUCT_INPUT);
+    await productService.remove(created.id);
+
+    await expect(productService.getById(created.id)).rejects.toThrow(/was not found/);
   });
 });

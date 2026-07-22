@@ -12,7 +12,7 @@ test.describe("authentication", () => {
     await page.getByRole("button", { name: "Sign in" }).click();
 
     await expect(page).toHaveURL(/\/dashboard/);
-    await expect(page.getByRole("heading", { name: /Agency Operations/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
   });
 
   test("signing out returns to the login screen and re-guards the dashboard", async ({ page }) => {

@@ -5,7 +5,7 @@ export const siteConfig = {
   name: env.appName,
   description:
     "A production-ready, feature-based Next.js frontend boilerplate with the Studio design system.",
-  tagline: "Agency Operations",
+  tagline: "Design System Storefront",
   /** Where an authenticated user lands. */
   homeUrl: "/dashboard",
   /** Where an unauthenticated user is sent. */
