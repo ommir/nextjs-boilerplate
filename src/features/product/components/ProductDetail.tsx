@@ -4,29 +4,25 @@ import { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, Star } from "lucide-react";
-import { Badge, Card, ErrorState, LoadingState } from "@/components/ui";
+import { Badge, Card } from "@/components/ui";
 import { AddToCartButton } from "@/features/cart/components/AddToCartButton";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { formatCurrency } from "@/lib/utils";
 import { categoryMeta } from "../lib/category";
 import { StockSignal } from "./StockSignal";
-import { useProduct } from "../hooks/useProducts";
+import type { Product } from "../types";
 
 const RECENTLY_VIEWED_KEY = "studio-recently-viewed-products";
 const RECENTLY_VIEWED_LIMIT = 4;
 
-function RecentlyViewedLink({ id }: { id: string }) {
-  const { data: product } = useProduct(id);
-  if (!product) return null;
-
-  return (
-    <Link
-      href={`/products/${product.id}`}
-      className="shrink-0 rounded-sm border border-border bg-surface px-2.5 py-1 text-caption font-semibold text-ink-secondary transition-colors hover:bg-surface-hover hover:text-ink"
-    >
-      {product.name}
-    </Link>
-  );
+/**
+ * Stores the name alongside the slug so the chips render without refetching
+ * each product. This is display-only data the user has already seen — there is
+ * nothing here worth a round trip.
+ */
+interface RecentlyViewed {
+  slug: string;
+  name: string;
 }
 
 /** Spec row for the details table — a hairline key/value pair (DESIGN_SYSTEM.md §8.3). */
@@ -39,30 +35,26 @@ function SpecRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ProductDetail({ productId }: { productId: string }) {
-  const { data: product, isLoading, isError, refetch } = useProduct(productId);
-  const [recentlyViewed, setRecentlyViewed] = useLocalStorage<string[]>(RECENTLY_VIEWED_KEY, []);
+/** Presentational product page. The product itself is resolved on the server. */
+export function ProductDetail({ product }: { product: Product }) {
+  const [recentlyViewed, setRecentlyViewed] = useLocalStorage<RecentlyViewed[]>(
+    RECENTLY_VIEWED_KEY,
+    [],
+  );
 
   useEffect(() => {
-    if (!product) return;
-    setRecentlyViewed((prev) => [product.id, ...prev.filter((id) => id !== product.id)].slice(0, RECENTLY_VIEWED_LIMIT));
+    setRecentlyViewed((previous) =>
+      [
+        { slug: product.slug, name: product.name },
+        ...previous.filter((entry) => entry.slug !== product.slug),
+      ].slice(0, RECENTLY_VIEWED_LIMIT),
+    );
     // Only re-run when the viewed product changes, not on every store update.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product?.id]);
-
-  if (isLoading) return <LoadingState label="Loading product…" />;
-  if (isError || !product) {
-    return (
-      <ErrorState
-        title="Product unavailable"
-        description="This product could not be loaded."
-        onRetry={() => refetch()}
-      />
-    );
-  }
+  }, [product.slug]);
 
   const isOutOfStock = product.stock === 0;
-  const otherRecentlyViewed = recentlyViewed.filter((id) => id !== product.id);
+  const otherRecentlyViewed = recentlyViewed.filter((entry) => entry.slug !== product.slug);
 
   return (
     <div className="flex flex-col gap-8">
@@ -115,8 +107,14 @@ export function ProductDetail({ productId }: { productId: string }) {
             <div className="mt-2 flex flex-col gap-2">
               <span className="text-caption font-semibold text-ink-muted uppercase">Recently viewed</span>
               <div className="flex flex-wrap gap-2">
-                {otherRecentlyViewed.map((id) => (
-                  <RecentlyViewedLink key={id} id={id} />
+                {otherRecentlyViewed.map((entry) => (
+                  <Link
+                    key={entry.slug}
+                    href={`/products/${entry.slug}`}
+                    className="shrink-0 rounded-sm border border-border bg-surface px-2.5 py-1 text-caption font-semibold text-ink-secondary transition-colors hover:bg-surface-hover hover:text-ink"
+                  >
+                    {entry.name}
+                  </Link>
                 ))}
               </div>
             </div>

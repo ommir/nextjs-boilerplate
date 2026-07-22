@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test.describe("cart", () => {
   test("adding a product opens the drawer with a line item and subtotal", async ({ page }) => {
-    await page.goto("/products/prd_horizon");
+    await page.goto("/products/horizon-dashboard-kit");
 
     await page.getByRole("button", { name: "Add to cart" }).click();
 
@@ -14,7 +14,7 @@ test.describe("cart", () => {
   });
 
   test("increasing quantity updates the subtotal", async ({ page }) => {
-    await page.goto("/products/prd_horizon");
+    await page.goto("/products/horizon-dashboard-kit");
     await page.getByRole("button", { name: "Add to cart" }).click();
 
     const drawer = page.getByRole("dialog", { name: "Cart" });
@@ -24,7 +24,7 @@ test.describe("cart", () => {
   });
 
   test("removing the only line shows the empty state", async ({ page }) => {
-    await page.goto("/products/prd_horizon");
+    await page.goto("/products/horizon-dashboard-kit");
     await page.getByRole("button", { name: "Add to cart" }).click();
 
     const drawer = page.getByRole("dialog", { name: "Cart" });
@@ -50,7 +50,7 @@ test.describe("cart", () => {
   });
 
   test("persists the cart across a reload", async ({ page }) => {
-    await page.goto("/products/prd_horizon");
+    await page.goto("/products/horizon-dashboard-kit");
     await page.getByRole("button", { name: "Add to cart" }).click();
     await expect(page.getByRole("dialog", { name: "Cart" })).toBeVisible();
 

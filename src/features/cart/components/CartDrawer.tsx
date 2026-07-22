@@ -5,9 +5,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Minus, Plus, ShoppingBag, X } from "lucide-react";
-import { Button, LoadingState } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { cn, formatCurrency } from "@/lib/utils";
-import { useProducts } from "@/features/product/hooks/useProducts";
+import { useCatalog } from "@/features/product/context/CatalogProvider";
 import type { Product } from "@/features/product/types";
 import { useCartStore } from "../store/cartStore";
 
@@ -23,8 +23,8 @@ interface CartLineWithProduct {
 /**
  * Right-side cart drawer. Traps focus and closes on Escape while open,
  * restores focus to whatever triggered it on close (DESIGN_SYSTEM.md §9).
- * Line items are joined from `useProducts()` at render time, so prices and
- * names never drift from the catalog.
+ * Line items are joined against the server-rendered catalog at render time,
+ * so prices and names never drift from what the database holds.
  */
 export function CartDrawer() {
   const isOpen = useCartStore((s) => s.isOpen);
@@ -32,18 +32,12 @@ export function CartDrawer() {
   const items = useCartStore((s) => s.items);
   const setQty = useCartStore((s) => s.setQty);
   const removeItem = useCartStore((s) => s.removeItem);
-  const pruneMissing = useCartStore((s) => s.pruneMissing);
   const router = useRouter();
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const { data: products, isLoading, isSuccess } = useProducts();
-
-  // Reconcile the cart against the catalog whenever it loads. Guarded on
-  // `isSuccess` so a failed fetch never empties someone's cart.
-  useEffect(() => {
-    if (!isSuccess || !products) return;
-    pruneMissing(products.map((p) => p.id));
-  }, [isSuccess, products, pruneMissing]);
+  // Reconciliation against the catalog lives in <CartSync/> so it happens once
+  // per page rather than only while the drawer is mounted open.
+  const products = useCatalog();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -89,7 +83,7 @@ export function CartDrawer() {
   }, [isOpen, close]);
 
   const lines: CartLineWithProduct[] = items.flatMap((item) => {
-    const product = products?.find((p) => p.id === item.productId);
+    const product = products.find((p) => p.id === item.productId);
     return product ? [{ productId: item.productId, qty: item.qty, product }] : [];
   });
 
@@ -136,9 +130,7 @@ export function CartDrawer() {
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {isLoading ? (
-            <LoadingState label="Loading cart…" />
-          ) : lines.length === 0 ? (
+          {lines.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
               <span className="flex size-11 items-center justify-center rounded-pill bg-surface-muted text-ink-muted">
                 <ShoppingBag className="size-5" aria-hidden />

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { LoginForm } from "@/features/auth/components/LoginForm";
 
 export const metadata: Metadata = { title: "Sign in" };
@@ -11,11 +12,12 @@ export default function LoginPage() {
         <p className="mt-0.5 text-body-sm text-ink-muted">Sign in to your workspace to continue.</p>
       </div>
 
-      <LoginForm />
-
-      <p className="mt-5 rounded-sm bg-surface-muted px-3 py-2 text-caption text-ink-muted">
-        Demo mode — credentials are pre-filled. Any email and password will sign you in.
-      </p>
+      {/* LoginForm reads `?from` via useSearchParams, which opts the subtree
+          into client-side rendering — the Suspense boundary keeps that from
+          de-opting the whole route. */}
+      <Suspense fallback={null}>
+        <LoginForm />
+      </Suspense>
     </div>
   );
 }

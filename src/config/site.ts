@@ -10,4 +10,10 @@ export const siteConfig = {
   homeUrl: "/dashboard",
   /** Where an unauthenticated user is sent. */
   loginUrl: "/login",
+  /**
+   * Fallback for a signed-in user who lacks the role for a page. Must be
+   * reachable by the least-privileged account — pointing it at `homeUrl`
+   * creates a redirect loop, since every dashboard route requires admin.
+   */
+  storefrontUrl: "/",
 } as const;

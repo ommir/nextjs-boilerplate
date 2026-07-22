@@ -1,19 +1,18 @@
-"use client";
-
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { ProductForm } from "@/features/product/components/ProductForm";
-import { useCreateProduct } from "@/features/product/hooks/useProducts";
-import type { ProductInput } from "@/features/product/types";
+import { createProductAction } from "@/features/product/actions/productActions";
+import { requireAdmin } from "@/lib/auth/guards";
 
-export default function NewProductPage() {
-  const router = useRouter();
-  const createProduct = useCreateProduct();
+export default async function NewProductPage() {
+  await requireAdmin();
 
-  async function handleSubmit(input: ProductInput) {
-    await createProduct.mutateAsync(input);
-    router.push("/dashboard");
+  async function action(formData: FormData) {
+    "use server";
+    const result = await createProductAction(formData);
+    if (result.ok) redirect("/dashboard");
+    return result;
   }
 
   return (
@@ -28,10 +27,12 @@ export default function NewProductPage() {
 
       <div>
         <h1 className="text-display text-ink">New product</h1>
-        <p className="mt-1 text-body-sm text-ink-secondary">Adds a new item to the storefront catalog.</p>
+        <p className="mt-1 text-body-sm text-ink-secondary">
+          Adds a new item to the storefront catalog.
+        </p>
       </div>
 
-      <ProductForm onSubmit={handleSubmit} submitLabel="Create product" isSubmitting={createProduct.isPending} />
+      <ProductForm action={action} submitLabel="Create product" />
     </div>
   );
 }

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useActionState, useState } from "react";
 import { Button, Input } from "@/components/ui";
-import type { Product, ProductCategory, ProductInput } from "../types";
+import { slugify } from "../schemas/productSchemas";
+import type { ProductActionResult } from "../actions/productActions";
+import type { Product, ProductCategory } from "../types";
 
 const CATEGORIES: { value: ProductCategory; label: string }[] = [
   { value: "template", label: "Template" },
@@ -14,111 +16,97 @@ const CATEGORIES: { value: ProductCategory; label: string }[] = [
 interface ProductFormProps {
   /** Pass to pre-fill and edit an existing product; omit for create. */
   initialValue?: Product;
-  onSubmit: (input: ProductInput) => Promise<void>;
+  action: (formData: FormData) => Promise<ProductActionResult>;
   submitLabel: string;
-  isSubmitting?: boolean;
 }
 
-interface FormErrors {
-  name?: string;
-  summary?: string;
-  price?: string;
-  stock?: string;
-  imageUrl?: string;
+type State = ProductActionResult | null;
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return <span className="text-caption text-danger-text">{message}</span>;
 }
 
-interface RawValues {
-  name: string;
-  summary: string;
-  price: string;
-  stock: string;
-  imageUrl: string;
-}
-
-/** Boundary validation — required fields, non-negative numeric price/stock. */
-function validate(values: RawValues): FormErrors {
-  const errors: FormErrors = {};
-
-  if (!values.name.trim()) errors.name = "Name is required.";
-  if (!values.summary.trim()) errors.summary = "Summary is required.";
-  if (!values.imageUrl.trim()) errors.imageUrl = "Image URL is required.";
-
-  const price = Number(values.price);
-  if (values.price.trim() === "" || Number.isNaN(price) || price < 0) {
-    errors.price = "Enter a price of 0 or more.";
-  }
-
-  const stock = Number(values.stock);
-  if (values.stock.trim() === "" || Number.isNaN(stock) || !Number.isInteger(stock) || stock < 0) {
-    errors.stock = "Enter a whole number of 0 or more.";
-  }
-
-  return errors;
-}
-
-/** Shared create/edit form for the dashboard Products CRUD example. */
-export function ProductForm({ initialValue, onSubmit, submitLabel, isSubmitting = false }: ProductFormProps) {
+/**
+ * Shared create/edit form, submitted to a Server Action.
+ *
+ * Validation messages come back from the same zod schema the action enforces,
+ * so what the user is told and what the server accepts cannot drift.
+ */
+export function ProductForm({ initialValue, action, submitLabel }: ProductFormProps) {
   const [name, setName] = useState(initialValue?.name ?? "");
-  const [summary, setSummary] = useState(initialValue?.summary ?? "");
-  const [description, setDescription] = useState(initialValue?.description ?? "");
-  const [category, setCategory] = useState<ProductCategory>(initialValue?.category ?? "template");
-  const [price, setPrice] = useState(initialValue ? String(initialValue.price) : "");
-  const [stock, setStock] = useState(initialValue ? String(initialValue.stock) : "");
-  const [imageUrl, setImageUrl] = useState(initialValue?.imageUrl ?? "");
-  const [errors, setErrors] = useState<FormErrors>({});
+  // Auto-derived until the user takes it over, so URLs stay readable without
+  // forcing anyone to think about slugs.
+  const [slug, setSlug] = useState(initialValue?.slug ?? "");
+  const [slugTouched, setSlugTouched] = useState(Boolean(initialValue));
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const validationErrors = validate({ name, summary, price, stock, imageUrl });
-    setErrors(validationErrors);
-    if (Object.keys(validationErrors).length > 0) return;
+  const [state, formAction, isPending] = useActionState<State, FormData>(
+    (_previous, formData) => action(formData),
+    null,
+  );
 
-    await onSubmit({
-      name: name.trim(),
-      summary: summary.trim(),
-      description: description.trim(),
-      category,
-      price: Number(price),
-      stock: Number(stock),
-      imageUrl: imageUrl.trim(),
-      rating: initialValue?.rating ?? 0,
-    });
-  }
+  const fieldErrors = state && !state.ok ? (state.fieldErrors ?? {}) : {};
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="flex max-w-xl flex-col gap-4">
+    <form action={formAction} noValidate className="flex max-w-xl flex-col gap-4">
       <label className="flex flex-col gap-1.5">
         <span className="text-body-sm font-semibold text-ink">Name</span>
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Horizon Dashboard Kit" />
-        {errors.name && <span className="text-caption text-danger-text">{errors.name}</span>}
+        <Input
+          name="name"
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (!slugTouched) setSlug(slugify(e.target.value));
+          }}
+          placeholder="Horizon Dashboard Kit"
+        />
+        <FieldError message={fieldErrors.name} />
+      </label>
+
+      <label className="flex flex-col gap-1.5">
+        <span className="text-body-sm font-semibold text-ink">Slug</span>
+        <Input
+          name="slug"
+          value={slug}
+          onChange={(e) => {
+            setSlug(e.target.value);
+            setSlugTouched(true);
+          }}
+          placeholder="horizon-dashboard-kit"
+        />
+        <span className="text-caption text-ink-muted">
+          Used in the URL: /products/{slug || "…"}
+        </span>
+        <FieldError message={fieldErrors.slug} />
       </label>
 
       <label className="flex flex-col gap-1.5">
         <span className="text-body-sm font-semibold text-ink">Summary</span>
         <Input
-          value={summary}
-          onChange={(e) => setSummary(e.target.value)}
+          name="summary"
+          defaultValue={initialValue?.summary ?? ""}
           placeholder="One-line pitch shown on the catalog card"
         />
-        {errors.summary && <span className="text-caption text-danger-text">{errors.summary}</span>}
+        <FieldError message={fieldErrors.summary} />
       </label>
 
       <label className="flex flex-col gap-1.5">
         <span className="text-body-sm font-semibold text-ink">Description</span>
         <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          name="description"
+          defaultValue={initialValue?.description ?? ""}
           rows={4}
           placeholder="Full product description shown on the product page"
           className="w-full rounded-sm border border-border bg-surface px-2.5 py-2 text-body-sm text-ink outline-none transition-colors placeholder:text-ink-muted focus:border-border-strong focus:ring-2 focus:ring-ink/10"
         />
+        <FieldError message={fieldErrors.description} />
       </label>
 
       <label className="flex flex-col gap-1.5">
         <span className="text-body-sm font-semibold text-ink">Category</span>
         <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value as ProductCategory)}
+          name="category"
+          defaultValue={initialValue?.category ?? "template"}
           className="h-9 w-full rounded-sm border border-border bg-surface px-2.5 text-body-sm text-ink outline-none transition-colors focus:border-border-strong focus:ring-2 focus:ring-ink/10"
         >
           {CATEGORIES.map((c) => (
@@ -132,24 +120,75 @@ export function ProductForm({ initialValue, onSubmit, submitLabel, isSubmitting 
       <div className="grid grid-cols-2 gap-4">
         <label className="flex flex-col gap-1.5">
           <span className="text-body-sm font-semibold text-ink">Price (USD)</span>
-          <Input type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="189" />
-          {errors.price && <span className="text-caption text-danger-text">{errors.price}</span>}
+          <Input
+            name="price"
+            type="number"
+            min="0"
+            step="0.01"
+            defaultValue={initialValue ? String(initialValue.price) : ""}
+            placeholder="189"
+          />
+          <FieldError message={fieldErrors.price} />
         </label>
 
         <label className="flex flex-col gap-1.5">
           <span className="text-body-sm font-semibold text-ink">Stock</span>
-          <Input type="number" min="0" step="1" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="12" />
-          {errors.stock && <span className="text-caption text-danger-text">{errors.stock}</span>}
+          <Input
+            name="stock"
+            type="number"
+            min="0"
+            step="1"
+            defaultValue={initialValue ? String(initialValue.stock) : "0"}
+            placeholder="12"
+          />
+          <FieldError message={fieldErrors.stock} />
         </label>
       </div>
 
       <label className="flex flex-col gap-1.5">
-        <span className="text-body-sm font-semibold text-ink">Image URL</span>
-        <Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://…" />
-        {errors.imageUrl && <span className="text-caption text-danger-text">{errors.imageUrl}</span>}
+        <span className="text-body-sm font-semibold text-ink">Rating</span>
+        <Input
+          name="rating"
+          type="number"
+          min="0"
+          max="5"
+          step="0.1"
+          defaultValue={initialValue ? String(initialValue.rating) : "0"}
+        />
+        <FieldError message={fieldErrors.rating} />
       </label>
 
-      <Button type="submit" isLoading={isSubmitting} className="mt-1 w-fit">
+      <label className="flex flex-col gap-1.5">
+        <span className="text-body-sm font-semibold text-ink">Product image</span>
+        <input
+          name="image"
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/avif"
+          className="text-body-sm text-ink-secondary file:mr-3 file:rounded-sm file:border file:border-border file:bg-surface file:px-2.5 file:py-1 file:text-body-sm file:font-semibold file:text-ink hover:file:bg-surface-hover"
+        />
+        <span className="text-caption text-ink-muted">
+          PNG, JPEG, WebP or AVIF, up to 2 MB.{" "}
+          {initialValue ? "Leave empty to keep the current image." : "Optional."}
+        </span>
+      </label>
+
+      <label className="flex items-center gap-2">
+        <input
+          name="isPublished"
+          type="checkbox"
+          defaultChecked={initialValue?.isPublished ?? true}
+          className="size-4 rounded-sm border-border accent-ink"
+        />
+        <span className="text-body-sm text-ink">Visible on the storefront</span>
+      </label>
+
+      {state && !state.ok && (
+        <p role="alert" className="rounded-sm bg-danger-soft px-3 py-2 text-body-sm text-danger-text">
+          {state.error}
+        </p>
+      )}
+
+      <Button type="submit" isLoading={isPending} className="mt-1 w-fit">
         {submitLabel}
       </Button>
     </form>

@@ -1,21 +1,27 @@
-/** Roles used for RBAC across nav, guards, and UI rendering. */
-export type UserRole = "admin" | "member" | "viewer";
+import type { Database } from "@/lib/supabase/database.types";
 
-export interface User {
+/**
+ * Roles used for RBAC across nav, guards, and UI rendering.
+ *
+ * Derived from the `app_role` enum in Postgres rather than hand-written, so a
+ * new role added in a migration is a compile error here until it is handled.
+ */
+export type UserRole = Database["public"]["Enums"]["app_role"];
+
+/**
+ * The signed-in user as the app sees them: `auth.users` identity joined with
+ * their `public.profiles` row.
+ *
+ * `role` is authoritative only because the database refuses to let a user
+ * write it (see the column grants in migration 0002) — never because the
+ * client said so.
+ */
+export interface Profile {
   id: string;
   name: string;
   email: string;
   role: UserRole;
   avatarUrl?: string | null;
-}
-
-/**
- * An authenticated session as seen by the client. The token itself lives in
- * an HttpOnly cookie set by the `/api/auth/*` route handlers and is never
- * exposed here.
- */
-export interface AuthSession {
-  user: User;
 }
 
 export interface LoginCredentials {
@@ -30,3 +36,8 @@ export interface RegisterInput {
 }
 
 export type AuthStatus = "idle" | "authenticating" | "authenticated" | "error";
+
+/** Discriminated result returned by every auth Server Action. */
+export type AuthActionResult =
+  | { ok: true; message?: string }
+  | { ok: false; error: string };

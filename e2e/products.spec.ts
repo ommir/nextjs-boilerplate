@@ -22,15 +22,15 @@ test.describe("storefront catalog", () => {
     await page.goto("/");
     await page.getByText("Horizon Dashboard Kit").click();
 
-    await expect(page).toHaveURL(/\/products\/prd_horizon/);
+    await expect(page).toHaveURL(/\/products\/horizon-dashboard-kit/);
     await expect(page.getByRole("heading", { name: "Horizon Dashboard Kit" })).toBeVisible();
   });
 
   test("lists a previously viewed product as recently viewed on the next product page", async ({ page }) => {
-    await page.goto("/products/prd_horizon");
+    await page.goto("/products/horizon-dashboard-kit");
     await expect(page.getByRole("heading", { name: "Horizon Dashboard Kit" })).toBeVisible();
 
-    await page.goto("/products/prd_atlas");
+    await page.goto("/products/atlas-auth-module");
     await expect(page.getByRole("heading", { name: "Atlas Auth Module" })).toBeVisible();
 
     await expect(page.getByText("Recently viewed")).toBeVisible();

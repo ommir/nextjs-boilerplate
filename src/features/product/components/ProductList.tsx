@@ -1,13 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
-import { EmptyState, ErrorState, Input } from "@/components/ui";
-import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { EmptyState, Input } from "@/components/ui";
 import { cn } from "@/lib/utils";
-import { useProducts } from "../hooks/useProducts";
 import { ProductCard } from "./ProductCard";
-import type { ProductCategory } from "../types";
+import type { Product, ProductCategory } from "../types";
 
 type Filter = ProductCategory | "all";
 
@@ -19,32 +17,34 @@ const filters: { value: Filter; label: string }[] = [
   { value: "service", label: "Services" },
 ];
 
-function SkeletonCard() {
-  return (
-    <div className="overflow-hidden rounded-lg border border-border bg-surface">
-      <div className="aspect-[16/10] animate-pulse bg-surface-muted" />
-      <div className="flex flex-col gap-2 p-4">
-        <div className="h-4 w-2/3 animate-pulse rounded bg-surface-muted" />
-        <div className="h-3 w-full animate-pulse rounded bg-surface-muted" />
-        <div className="h-3 w-1/2 animate-pulse rounded bg-surface-muted" />
-      </div>
-    </div>
-  );
+interface ProductListProps {
+  /** Fetched on the server; this component only filters what it is given. */
+  products: Product[];
 }
 
 /**
- * Container component: owns filter/search state and data fetching, then renders
- * loading / error / empty / success states around presentational cards.
+ * Catalog grid with category and search filters.
+ *
+ * Filtering happens client-side over the server-rendered list: for a catalog
+ * this size a round trip per keystroke would be slower and would give up the
+ * instant feedback. The repository still supports server-side `category` and
+ * `search` (backed by the trigram index) for when the catalog outgrows this.
  */
-export function ProductList() {
+export function ProductList({ products }: ProductListProps) {
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
-  const debouncedSearch = useDebouncedValue(search, 300);
 
-  const { data, isLoading, isError, refetch } = useProducts({
-    category: filter === "all" ? undefined : filter,
-    search: debouncedSearch,
-  });
+  const visible = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return products.filter((product) => {
+      const matchesCategory = filter === "all" || product.category === filter;
+      const matchesSearch =
+        !term ||
+        product.name.toLowerCase().includes(term) ||
+        product.summary.toLowerCase().includes(term);
+      return matchesCategory && matchesSearch;
+    });
+  }, [products, filter, search]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -76,15 +76,7 @@ export function ProductList() {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
-        </div>
-      ) : isError ? (
-        <ErrorState onRetry={() => refetch()} />
-      ) : !data || data.length === 0 ? (
+      {visible.length === 0 ? (
         <EmptyState
           icon={Search}
           title="No products found"
@@ -92,7 +84,7 @@ export function ProductList() {
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data.map((product) => (
+          {visible.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>

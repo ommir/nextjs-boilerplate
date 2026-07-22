@@ -7,7 +7,7 @@ test.describe("checkout", () => {
   });
 
   test("places a mock order and clears the cart", async ({ page }) => {
-    await page.goto("/products/prd_horizon");
+    await page.goto("/products/horizon-dashboard-kit");
     await page.getByRole("button", { name: "Add to cart" }).click();
     await page.getByRole("button", { name: "Check out" }).click();
 
@@ -19,7 +19,9 @@ test.describe("checkout", () => {
     await page.getByRole("button", { name: "Place order" }).click();
 
     await expect(page.getByRole("heading", { name: "Order placed" })).toBeVisible();
-    await expect(page.getByText(/^Reference ORD-/)).toBeVisible();
+    // place_order() mints the reference as STU-XXXXXXXX; the old ORD- prefix
+    // was the fake client-side one.
+    await expect(page.getByText(/^Reference STU-/)).toBeVisible();
 
     await page.goto("/");
     // exact: true — a substring match on "Cart" also catches the drawer's "Close cart" button.
@@ -27,7 +29,7 @@ test.describe("checkout", () => {
   });
 
   test("rejects an invalid email", async ({ page }) => {
-    await page.goto("/products/prd_horizon");
+    await page.goto("/products/horizon-dashboard-kit");
     await page.getByRole("button", { name: "Add to cart" }).click();
     await page.getByRole("button", { name: "Check out" }).click();
 

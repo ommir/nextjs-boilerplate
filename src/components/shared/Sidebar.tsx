@@ -2,11 +2,12 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { ExternalLink, LayoutGrid, LogOut, Search } from "lucide-react";
 import { Avatar } from "@/components/ui";
 import { navSections } from "@/config/nav";
 import { siteConfig } from "@/config/site";
+import { signOutAction } from "@/features/auth/actions/authActions";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useUiStore } from "@/store/ui-store";
@@ -18,8 +19,7 @@ function isItemActive(pathname: string, href: string): boolean {
 
 export function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { user, hasRole, logout } = useAuth();
+  const { profile, hasRole } = useAuth();
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
   const setSidebarOpen = useUiStore((s) => s.setSidebarOpen);
 
@@ -31,11 +31,6 @@ export function Sidebar() {
   useEffect(() => {
     if (isDesktop) setSidebarOpen(false);
   }, [isDesktop, setSidebarOpen]);
-
-  async function handleLogout() {
-    await logout();
-    router.push(siteConfig.loginUrl);
-  }
 
   return (
     <>
@@ -134,20 +129,23 @@ export function Sidebar() {
 
         {/* User chip */}
         <div className="flex items-center gap-2.5 border-t border-border px-3 py-3">
-          <Avatar name={user?.name ?? "Guest"} src={user?.avatarUrl} size="md" />
+          <Avatar name={profile?.name ?? "Guest"} src={profile?.avatarUrl} size="md" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-body-sm font-semibold text-ink">{user?.name ?? "Guest"}</p>
-            <p className="truncate text-caption text-ink-muted">{user?.email ?? ""}</p>
+            <p className="truncate text-body-sm font-semibold text-ink">{profile?.name ?? "Guest"}</p>
+            <p className="truncate text-caption text-ink-muted">{profile?.email ?? ""}</p>
           </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex size-8 items-center justify-center rounded-sm text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
-            aria-label="Sign out"
-            title="Sign out"
-          >
-            <LogOut className="size-4" aria-hidden />
-          </button>
+          {/* Sign-out is a form post to a Server Action: the session lives in
+              HttpOnly cookies that only the server can clear. */}
+          <form action={signOutAction}>
+            <button
+              type="submit"
+              className="flex size-8 items-center justify-center rounded-sm text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <LogOut className="size-4" aria-hidden />
+            </button>
+          </form>
         </div>
       </aside>
     </>

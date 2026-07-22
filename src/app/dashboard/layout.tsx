@@ -1,21 +1,19 @@
 import type { ReactNode } from "react";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/shared/Sidebar";
 import { Header } from "@/components/shared/Header";
-import { AUTH_COOKIE } from "@/lib/cookies";
-import { siteConfig } from "@/config/site";
+import { requireUser } from "@/lib/auth/guards";
 
 /**
  * Protected app shell: sidebar + header + scrollable content.
  *
- * The session check happens here, server-side, via the same HttpOnly cookie
- * the middleware reads — no client mount-gate, no "Checking your session…"
- * flash. `middleware.ts` is the first line of defense; this is the second.
+ * The session check happens here, server-side, via a signature-verified JWT —
+ * no client mount-gate, no "Checking your session…" flash. `middleware.ts` is
+ * the first line of defense, this is the second, and RLS is the third. Note
+ * that this checks the *token*, not merely the presence of a cookie: a cookie
+ * anyone can set is not a credential.
  */
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
-  const cookieStore = await cookies();
-  if (!cookieStore.get(AUTH_COOKIE)?.value) redirect(siteConfig.loginUrl);
+  await requireUser();
 
   return (
     <div className="min-h-dvh">
