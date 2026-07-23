@@ -12,7 +12,14 @@ import { categoryMeta } from "../lib/category";
 import { StockSignal } from "./StockSignal";
 import type { Product } from "../types";
 
-const RECENTLY_VIEWED_KEY = "studio-recently-viewed-products";
+// "-v2": the pre-Supabase app stored this as an array of bare product id
+// strings (e.g. "prd_horizon"). This migration changed the shape to
+// {slug, name} objects and switched ids to UUIDs, so anyone who browsed the
+// old app has stale data under the old key. Reading it back as the new shape
+// gives every entry an undefined `slug`, which collides on the list key below
+// — "Each child in a list should have a unique key prop." Bumping the key
+// sidesteps parsing that legacy shape at all, rather than trying to migrate it.
+const RECENTLY_VIEWED_KEY = "studio-recently-viewed-products-v2";
 const RECENTLY_VIEWED_LIMIT = 4;
 
 /**
@@ -23,6 +30,16 @@ const RECENTLY_VIEWED_LIMIT = 4;
 interface RecentlyViewed {
   slug: string;
   name: string;
+}
+
+/** Runtime guard for what useLocalStorage hands back — it does not validate shape. */
+function isRecentlyViewed(value: unknown): value is RecentlyViewed {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as RecentlyViewed).slug === "string" &&
+    typeof (value as RecentlyViewed).name === "string"
+  );
 }
 
 /** Spec row for the details table — a hairline key/value pair (DESIGN_SYSTEM.md §8.3). */
@@ -46,7 +63,7 @@ export function ProductDetail({ product }: { product: Product }) {
     setRecentlyViewed((previous) =>
       [
         { slug: product.slug, name: product.name },
-        ...previous.filter((entry) => entry.slug !== product.slug),
+        ...previous.filter(isRecentlyViewed).filter((entry) => entry.slug !== product.slug),
       ].slice(0, RECENTLY_VIEWED_LIMIT),
     );
     // Only re-run when the viewed product changes, not on every store update.
@@ -54,7 +71,13 @@ export function ProductDetail({ product }: { product: Product }) {
   }, [product.slug]);
 
   const isOutOfStock = product.stock === 0;
-  const otherRecentlyViewed = recentlyViewed.filter((entry) => entry.slug !== product.slug);
+  // Filtered through isRecentlyViewed as a second line of defense: bumping the
+  // storage key (above) handles today's known-bad shape, this handles anything
+  // else that ends up malformed — corrupt JSON, a future shape change, a stray
+  // write from another tab — without resurrecting the key-collision warning.
+  const otherRecentlyViewed = recentlyViewed
+    .filter(isRecentlyViewed)
+    .filter((entry) => entry.slug !== product.slug);
 
   return (
     <div className="flex flex-col gap-8">
