@@ -3,11 +3,10 @@ import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { ProductForm } from "@/features/product/components/ProductForm";
 import { createProductAction } from "@/features/product/actions/productActions";
-import { requireAdmin } from "@/lib/auth/guards";
 
+// Admin access is enforced by the dashboard layout; createProductAction
+// re-checks it independently.
 export default async function NewProductPage() {
-  await requireAdmin();
-
   async function action(formData: FormData) {
     "use server";
     const result = await createProductAction(formData);

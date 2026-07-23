@@ -23,8 +23,11 @@ export function LoginForm() {
         // request. It comes from the URL, so only same-origin relative paths
         // are honoured — otherwise this is an open redirect.
         const from = searchParams.get("from");
-        const target = from?.startsWith("/") && !from.startsWith("//") ? from : siteConfig.homeUrl;
-        router.replace(target);
+        const safeFrom = from?.startsWith("/") && !from.startsWith("//") ? from : null;
+        // Fall back by role: admins to the dashboard, everyone else to the
+        // storefront. Sending a member to `/dashboard` only bounces them back.
+        const fallback = result.isAdmin ? siteConfig.homeUrl : siteConfig.storefrontUrl;
+        router.replace(safeFrom ?? fallback);
         router.refresh();
       }
       return result;

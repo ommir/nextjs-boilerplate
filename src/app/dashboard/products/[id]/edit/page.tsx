@@ -4,7 +4,6 @@ import { ArrowLeft } from "lucide-react";
 import { ProductForm } from "@/features/product/components/ProductForm";
 import { updateProductAction } from "@/features/product/actions/productActions";
 import { getProductRepository } from "@/features/product/repositories/productRepository";
-import { requireAdmin } from "@/lib/auth/guards";
 
 /**
  * Rendered per request.
@@ -18,12 +17,13 @@ import { requireAdmin } from "@/lib/auth/guards";
  */
 export const dynamic = "force-dynamic";
 
+// Admin access is enforced by the dashboard layout; updateProductAction
+// re-checks it independently.
 export default async function EditProductPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdmin();
   const { id } = await params;
   const product = await getProductRepository().getById(id);
 

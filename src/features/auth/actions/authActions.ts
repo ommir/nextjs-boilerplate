@@ -55,19 +55,31 @@ export async function signInAction(formData: FormData): Promise<AuthActionResult
     password: formData.get("password"),
   });
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
-  if (isMockMode) return { ok: true };
+  // The mock user is an admin (see getCurrentProfile), so mock-mode sign-in
+  // lands on the dashboard like a real admin would.
+  if (isMockMode) return { ok: true, isAdmin: true };
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword(parsed.data);
+  const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
 
-  if (error) {
+  if (error || !data.user) {
     // Deliberately generic: distinguishing "no such user" from "wrong
     // password" hands an attacker a free account-enumeration oracle.
     return { ok: false, error: "Those credentials didn't work. Try again." };
   }
 
+  // Decide the landing page by role. The session is live on `supabase` now, so
+  // this reads the caller's own profile under RLS. `role` is authoritative
+  // because the database refuses to let a user write it, not because we trust
+  // the client.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", data.user.id)
+    .maybeSingle();
+
   revalidatePath("/", "layout");
-  return { ok: true };
+  return { ok: true, isAdmin: profile?.role === "admin" };
 }
 
 export async function signUpAction(formData: FormData): Promise<AuthActionResult> {

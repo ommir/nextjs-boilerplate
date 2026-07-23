@@ -3,12 +3,25 @@
 import Link from "next/link";
 import { LayoutGrid } from "lucide-react";
 import { CartButton } from "@/features/cart/components/CartButton";
+import { signOutAction } from "@/features/auth/actions/authActions";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { siteConfig } from "@/config/site";
 
-/** Public storefront header: brand, primary nav, cart, and sign-in/dashboard link. */
+const CTA_CLASS =
+  "inline-flex h-9 items-center rounded-sm border border-border bg-surface px-3 text-body-sm font-semibold text-ink transition-colors hover:bg-surface-hover";
+
+/**
+ * Public storefront header: brand, primary nav, cart, and a role-aware CTA.
+ *
+ * The CTA is deliberately not a simple signed-in/out toggle. `/dashboard` is
+ * the admin Products CRUD and every route under it is admin-only, so a member
+ * shown a "Dashboard" link would click it, land on the shell, and get bounced
+ * straight back to the storefront. So: guests sign in, admins get the
+ * dashboard, and signed-in members get a way to sign out (they have no
+ * dashboard to go to, and "Sign in" would be nonsense while authenticated).
+ */
 export function StorefrontHeader() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, hasRole } = useAuth();
 
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-canvas">
@@ -28,12 +41,23 @@ export function StorefrontHeader() {
 
         <div className="flex items-center gap-1.5">
           <CartButton />
-          <Link
-            href={isAuthenticated ? siteConfig.homeUrl : siteConfig.loginUrl}
-            className="inline-flex h-9 items-center rounded-sm border border-border bg-surface px-3 text-body-sm font-semibold text-ink transition-colors hover:bg-surface-hover"
-          >
-            {isAuthenticated ? "Dashboard" : "Sign in"}
-          </Link>
+          {!isAuthenticated ? (
+            <Link href={siteConfig.loginUrl} className={CTA_CLASS}>
+              Sign in
+            </Link>
+          ) : hasRole("admin") ? (
+            <Link href={siteConfig.homeUrl} className={CTA_CLASS}>
+              Dashboard
+            </Link>
+          ) : (
+            // Sign-out is a form post to a Server Action: the session lives in
+            // HttpOnly cookies only the server can clear.
+            <form action={signOutAction}>
+              <button type="submit" className={CTA_CLASS}>
+                Sign out
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </header>

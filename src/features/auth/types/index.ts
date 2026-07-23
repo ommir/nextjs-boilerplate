@@ -39,5 +39,14 @@ export type AuthStatus = "idle" | "authenticating" | "authenticated" | "error";
 
 /** Discriminated result returned by every auth Server Action. */
 export type AuthActionResult =
-  | { ok: true; message?: string }
+  | {
+      ok: true;
+      message?: string;
+      /**
+       * Set by `signInAction` so the client can land the user somewhere they
+       * can actually go: admins to the dashboard, everyone else to the
+       * storefront. Sending a member to `/dashboard` just bounces them.
+       */
+      isAdmin?: boolean;
+    }
   | { ok: false; error: string };

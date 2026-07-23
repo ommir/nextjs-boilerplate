@@ -1,6 +1,5 @@
 import { ProductsTable } from "@/features/product/components/ProductsTable";
 import { getProductRepository } from "@/features/product/repositories/productRepository";
-import { requireAdmin } from "@/lib/auth/guards";
 
 /**
  * Rendered per request.
@@ -14,11 +13,12 @@ import { requireAdmin } from "@/lib/auth/guards";
  */
 export const dynamic = "force-dynamic";
 
-/** Dashboard Products CRUD index — the storefront catalog's admin surface. */
+/**
+ * Dashboard Products CRUD index — the storefront catalog's admin surface.
+ * Admin access is enforced by the dashboard layout; admins also see drafts,
+ * because the RLS policy grants them a second SELECT path.
+ */
 export default async function DashboardProductsPage() {
-  // Admins see drafts as well as published rows, because the RLS policy grants
-  // them a second SELECT path. A member who reaches this URL is redirected.
-  await requireAdmin();
   const products = await getProductRepository().list({});
 
   return <ProductsTable products={products} />;
