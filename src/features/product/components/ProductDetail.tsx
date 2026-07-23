@@ -4,28 +4,41 @@ import { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, Star } from "lucide-react";
-import { Badge, Card, ErrorState, LoadingState } from "@/components/ui";
+import { Badge, Card } from "@/components/ui";
 import { AddToCartButton } from "@/features/cart/components/AddToCartButton";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { formatCurrency } from "@/lib/utils";
 import { categoryMeta } from "../lib/category";
 import { StockSignal } from "./StockSignal";
-import { useProduct } from "../hooks/useProducts";
+import type { Product } from "../types";
 
-const RECENTLY_VIEWED_KEY = "studio-recently-viewed-products";
+// "-v2": the pre-Supabase app stored this as an array of bare product id
+// strings (e.g. "prd_horizon"). This migration changed the shape to
+// {slug, name} objects and switched ids to UUIDs, so anyone who browsed the
+// old app has stale data under the old key. Reading it back as the new shape
+// gives every entry an undefined `slug`, which collides on the list key below
+// — "Each child in a list should have a unique key prop." Bumping the key
+// sidesteps parsing that legacy shape at all, rather than trying to migrate it.
+const RECENTLY_VIEWED_KEY = "studio-recently-viewed-products-v2";
 const RECENTLY_VIEWED_LIMIT = 4;
 
-function RecentlyViewedLink({ id }: { id: string }) {
-  const { data: product } = useProduct(id);
-  if (!product) return null;
+/**
+ * Stores the name alongside the slug so the chips render without refetching
+ * each product. This is display-only data the user has already seen — there is
+ * nothing here worth a round trip.
+ */
+interface RecentlyViewed {
+  slug: string;
+  name: string;
+}
 
+/** Runtime guard for what useLocalStorage hands back — it does not validate shape. */
+function isRecentlyViewed(value: unknown): value is RecentlyViewed {
   return (
-    <Link
-      href={`/products/${product.id}`}
-      className="shrink-0 rounded-sm border border-border bg-surface px-2.5 py-1 text-caption font-semibold text-ink-secondary transition-colors hover:bg-surface-hover hover:text-ink"
-    >
-      {product.name}
-    </Link>
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as RecentlyViewed).slug === "string" &&
+    typeof (value as RecentlyViewed).name === "string"
   );
 }
 
@@ -39,30 +52,32 @@ function SpecRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ProductDetail({ productId }: { productId: string }) {
-  const { data: product, isLoading, isError, refetch } = useProduct(productId);
-  const [recentlyViewed, setRecentlyViewed] = useLocalStorage<string[]>(RECENTLY_VIEWED_KEY, []);
+/** Presentational product page. The product itself is resolved on the server. */
+export function ProductDetail({ product }: { product: Product }) {
+  const [recentlyViewed, setRecentlyViewed] = useLocalStorage<RecentlyViewed[]>(
+    RECENTLY_VIEWED_KEY,
+    [],
+  );
 
   useEffect(() => {
-    if (!product) return;
-    setRecentlyViewed((prev) => [product.id, ...prev.filter((id) => id !== product.id)].slice(0, RECENTLY_VIEWED_LIMIT));
+    setRecentlyViewed((previous) =>
+      [
+        { slug: product.slug, name: product.name },
+        ...previous.filter(isRecentlyViewed).filter((entry) => entry.slug !== product.slug),
+      ].slice(0, RECENTLY_VIEWED_LIMIT),
+    );
     // Only re-run when the viewed product changes, not on every store update.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product?.id]);
-
-  if (isLoading) return <LoadingState label="Loading product…" />;
-  if (isError || !product) {
-    return (
-      <ErrorState
-        title="Product unavailable"
-        description="This product could not be loaded."
-        onRetry={() => refetch()}
-      />
-    );
-  }
+  }, [product.slug]);
 
   const isOutOfStock = product.stock === 0;
-  const otherRecentlyViewed = recentlyViewed.filter((id) => id !== product.id);
+  // Filtered through isRecentlyViewed as a second line of defense: bumping the
+  // storage key (above) handles today's known-bad shape, this handles anything
+  // else that ends up malformed — corrupt JSON, a future shape change, a stray
+  // write from another tab — without resurrecting the key-collision warning.
+  const otherRecentlyViewed = recentlyViewed
+    .filter(isRecentlyViewed)
+    .filter((entry) => entry.slug !== product.slug);
 
   return (
     <div className="flex flex-col gap-8">
@@ -115,8 +130,14 @@ export function ProductDetail({ productId }: { productId: string }) {
             <div className="mt-2 flex flex-col gap-2">
               <span className="text-caption font-semibold text-ink-muted uppercase">Recently viewed</span>
               <div className="flex flex-wrap gap-2">
-                {otherRecentlyViewed.map((id) => (
-                  <RecentlyViewedLink key={id} id={id} />
+                {otherRecentlyViewed.map((entry) => (
+                  <Link
+                    key={entry.slug}
+                    href={`/products/${entry.slug}`}
+                    className="shrink-0 rounded-sm border border-border bg-surface px-2.5 py-1 text-caption font-semibold text-ink-secondary transition-colors hover:bg-surface-hover hover:text-ink"
+                  >
+                    {entry.name}
+                  </Link>
                 ))}
               </div>
             </div>

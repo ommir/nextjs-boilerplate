@@ -1,43 +1,49 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useActionState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AtSign, Lock } from "lucide-react";
 import { Button, Input } from "@/components/ui";
 import { siteConfig } from "@/config/site";
-import { useAuth } from "../hooks/useAuth";
-import { DEMO_CREDENTIALS } from "../services/authService";
+import { signInAction } from "../actions/authActions";
+import type { AuthActionResult } from "../types";
+
+type State = AuthActionResult | null;
 
 export function LoginForm() {
   const router = useRouter();
-  const { login, isAuthenticating, error, clearError } = useAuth();
-  const [email, setEmail] = useState(DEMO_CREDENTIALS.email);
-  const [password, setPassword] = useState(DEMO_CREDENTIALS.password);
+  const searchParams = useSearchParams();
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    try {
-      await login({ email, password });
-      router.push(siteConfig.homeUrl);
-    } catch {
-      // Error is surfaced via the store; nothing else to do here.
-    }
-  }
+  const [state, formAction, isPending] = useActionState<State, FormData>(
+    async (_previous, formData) => {
+      const result = await signInAction(formData);
+      if (result.ok) {
+        // `from` is set by the middleware when it bounces an unauthenticated
+        // request. It comes from the URL, so only same-origin relative paths
+        // are honoured — otherwise this is an open redirect.
+        const from = searchParams.get("from");
+        const safeFrom = from?.startsWith("/") && !from.startsWith("//") ? from : null;
+        // Fall back by role: admins to the dashboard, everyone else to the
+        // storefront. Sending a member to `/dashboard` only bounces them back.
+        const fallback = result.isAdmin ? siteConfig.homeUrl : siteConfig.storefrontUrl;
+        router.replace(safeFrom ?? fallback);
+        router.refresh();
+      }
+      return result;
+    },
+    null,
+  );
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+    <form action={formAction} className="flex flex-col gap-4" noValidate>
       <label className="flex flex-col gap-1.5">
         <span className="text-body-sm font-semibold text-ink">Email</span>
         <Input
+          name="email"
           type="email"
           autoComplete="email"
           placeholder="you@company.com"
-          value={email}
-          onChange={(e) => {
-            setEmail(e.target.value);
-            if (error) clearError();
-          }}
           leading={<AtSign className="size-4" />}
           required
         />
@@ -46,35 +52,36 @@ export function LoginForm() {
       <label className="flex flex-col gap-1.5">
         <span className="text-body-sm font-semibold text-ink">Password</span>
         <Input
+          name="password"
           type="password"
           autoComplete="current-password"
           placeholder="••••••••"
-          value={password}
-          onChange={(e) => {
-            setPassword(e.target.value);
-            if (error) clearError();
-          }}
           leading={<Lock className="size-4" />}
           required
         />
       </label>
 
-      {error && (
+      {state && !state.ok && (
         <p className="rounded-sm bg-danger-soft px-3 py-2 text-body-sm text-danger-text" role="alert">
-          {error}
+          {state.error}
         </p>
       )}
 
-      <Button type="submit" isLoading={isAuthenticating} className="mt-1 w-full">
+      <Button type="submit" isLoading={isPending} className="mt-1 w-full">
         Sign in
       </Button>
 
-      <p className="text-center text-body-sm text-ink-muted">
-        Don&apos;t have an account?{" "}
-        <Link href="/register" className="font-semibold text-ink hover:underline">
-          Create one
+      <div className="flex flex-col gap-1.5 text-center text-body-sm text-ink-muted">
+        <Link href="/forgot-password" className="font-semibold text-ink hover:underline">
+          Forgot your password?
         </Link>
-      </p>
+        <p>
+          Don&apos;t have an account?{" "}
+          <Link href="/register" className="font-semibold text-ink hover:underline">
+            Create one
+          </Link>
+        </p>
+      </div>
     </form>
   );
 }

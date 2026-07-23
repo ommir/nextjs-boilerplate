@@ -1,36 +1,59 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { updateSession } from "@/lib/supabase/middleware";
+import { isSupabaseConfigured } from "@/config/env";
 
-/** Must match `AUTH_COOKIE` in `src/lib/cookies.ts`. */
-const AUTH_COOKIE = "studio-auth";
 const PROTECTED_PREFIX = "/dashboard";
-const AUTH_ROUTES = ["/login", "/register"];
+const AUTH_ROUTES = ["/login", "/register", "/forgot-password"];
 
 /**
- * Edge middleware gating protected routes.
- * - Unauthenticated hits on `/dashboard/*` -> redirect to `/login` (with `?from`).
- * - Authenticated hits on `/login` or `/register` -> redirect to `/dashboard`.
+ * Edge middleware: refreshes the Supabase session on every request and gates
+ * protected routes.
  *
- * This is the first line of defense; `dashboard/layout.tsx` backs it up with a
- * server-side check of the same cookie.
+ * - Unauthenticated hits on `/dashboard/*` -> `/login` (with `?from`).
+ * - Authenticated hits on `/login` etc. -> `/dashboard`.
+ *
+ * This is a redirect for humans, not a security boundary. The real checks are
+ * the server-side `getClaims()` in `dashboard/layout.tsx` and, underneath
+ * everything, RLS in Postgres. Middleware runs before those and can be
+ * bypassed by calling an action directly, so nothing may depend on it alone.
  */
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const hasSession = Boolean(request.cookies.get(AUTH_COOKIE)?.value);
 
-  if (pathname.startsWith(PROTECTED_PREFIX) && !hasSession) {
+  // In mock mode there is no Supabase to talk to; leave routing alone so the
+  // boilerplate still runs with zero backend configuration.
+  if (!isSupabaseConfigured) return NextResponse.next();
+
+  const { supabaseResponse, claims } = await updateSession(request);
+  const isAuthenticated = Boolean(claims?.sub);
+
+  if (pathname.startsWith(PROTECTED_PREFIX) && !isAuthenticated) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("from", pathname);
-    return NextResponse.redirect(loginUrl);
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    // Carry over the refreshed auth cookies, or the next request starts from
+    // a stale token and the user bounces in a loop.
+    supabaseResponse.cookies
+      .getAll()
+      .forEach((cookie) => redirectResponse.cookies.set(cookie));
+    return redirectResponse;
   }
 
-  if (AUTH_ROUTES.includes(pathname) && hasSession) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+  if (AUTH_ROUTES.includes(pathname) && isAuthenticated) {
+    const redirectResponse = NextResponse.redirect(new URL("/dashboard", request.url));
+    supabaseResponse.cookies
+      .getAll()
+      .forEach((cookie) => redirectResponse.cookies.set(cookie));
+    return redirectResponse;
   }
 
-  return NextResponse.next();
+  return supabaseResponse;
 }
 
 export const config = {
-  // Run on everything except static assets and API routes.
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.svg).*)"],
+  // Everything except static assets. `/auth/*` is excluded too: the callback
+  // route establishes the session itself and must not be redirected first.
+  matcher: [
+    "/((?!api|auth|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif)$).*)",
+  ],
 };

@@ -13,24 +13,27 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
-      // Scoped to the modules Phase 2 of IMPLEMENTATION_PLAN.md targets (pure
-      // logic, stores, one service, and the primitives/container with tests).
-      // The rest of src/ (dashboard widgets, auth forms, Redux, other
-      // primitives) is intentionally untested for now — see Phase 3 backlog.
+      // Scoped to the pure logic that unit tests can meaningfully cover:
+      // mappers, schemas, stores, and the mock repository.
+      //
+      // Deliberately excluded: Server Actions, the Supabase repositories, and
+      // the RLS policies. Those are exercised against a real Postgres — see
+      // supabase/tests/*.test.sql — because mocking the database away would
+      // test the mock rather than the authorization rules that matter.
       include: [
         "src/lib/utils.ts",
         "src/lib/breadcrumbs.ts",
-        "src/features/auth/store/authStore.ts",
+        "src/config/env.ts",
         "src/store/ui-store.ts",
-        "src/features/product/services/productService.ts",
         "src/components/ui/Button.tsx",
         "src/components/ui/Badge.tsx",
         "src/components/ui/ProgressBar.tsx",
-        "src/features/product/components/ProductList.tsx",
         "src/features/product/components/StockSignal.tsx",
+        "src/features/product/mappers/productMapper.ts",
+        "src/features/product/schemas/productSchemas.ts",
+        "src/features/product/repositories/mockProductRepository.ts",
         "src/features/cart/store/cartStore.ts",
         "src/features/cart/components/CheckoutForm.tsx",
-        "src/features/product/components/ProductForm.tsx",
       ],
       thresholds: { lines: 80, functions: 80, branches: 75, statements: 80 },
     },

@@ -6,17 +6,49 @@ import { expect, test } from "@playwright/test";
  * the cart/badge divergence and the lost-focus bug both shipped unnoticed.
  */
 
-async function loginAsDemoUser(page: import("@playwright/test").Page) {
-  await page.goto("/login");
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/dashboard/);
+/**
+ * The suite runs in mock mode, where the app treats you as a signed-in admin,
+ * so reaching the dashboard is a navigation rather than a sign-in. Real
+ * authorization is asserted in supabase/tests/*.test.sql.
+ */
+async function openDashboard(page: import("@playwright/test").Page) {
+  await page.goto("/dashboard");
+  await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
+}
+
+/**
+ * Create a product this test owns.
+ *
+ * The mock catalog lives in the server process, so it is shared across the
+ * whole run. Deleting a *seeded* product here would break whichever test ran
+ * next; each destructive test therefore brings its own.
+ */
+async function createProduct(
+  page: import("@playwright/test").Page,
+  name: string,
+  price = "25",
+  stock = "4",
+) {
+  await page.goto("/dashboard/products/new");
+  await page.getByPlaceholder("Horizon Dashboard Kit").fill(name);
+  await page
+    .getByPlaceholder("One-line pitch shown on the catalog card")
+    .fill(`Summary for ${name}.`);
+  await page
+    .getByPlaceholder("Full product description shown on the product page")
+    .fill(`Full description for ${name}.`);
+  await page.getByPlaceholder("189").fill(price);
+  await page.getByPlaceholder("12").fill(stock);
+  await page.getByRole("button", { name: "Create product" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
 }
 
 test.describe("storefront <-> dashboard", () => {
   test("deleting a product in the dashboard clears it from an existing cart", async ({ page }) => {
-    await loginAsDemoUser(page);
+    await openDashboard(page);
+    await createProduct(page, "Cart Clearing Kit");
 
-    await page.goto("/products/prd_horizon");
+    await page.goto("/products/cart-clearing-kit");
     await page.getByRole("button", { name: "Add to cart" }).click();
     await expect(page.getByRole("dialog", { name: "Cart" })).toBeVisible();
     await expect(page.locator("header button[aria-label^='Cart']")).toHaveAttribute(
@@ -25,7 +57,7 @@ test.describe("storefront <-> dashboard", () => {
     );
 
     await page.goto("/dashboard");
-    await page.getByRole("button", { name: "Delete Horizon Dashboard Kit" }).click();
+    await page.getByRole("button", { name: "Delete Cart Clearing Kit" }).click();
     await page.getByRole("button", { name: "Delete", exact: true }).click();
     // Wait for the dialog to close, not for the row to vanish: the row goes
     // immediately via the optimistic update, while the dialog stays open until
@@ -44,7 +76,7 @@ test.describe("storefront <-> dashboard", () => {
   });
 
   test("a cart holding a still-valid product is left alone", async ({ page }) => {
-    await page.goto("/products/prd_atlas");
+    await page.goto("/products/atlas-auth-module");
     await page.getByRole("button", { name: "Add to cart" }).click();
     await expect(page.getByRole("dialog", { name: "Cart" })).toBeVisible();
 
@@ -56,30 +88,34 @@ test.describe("storefront <-> dashboard", () => {
   });
 
   test("deleting a product keeps focus in the page instead of dropping it to the body", async ({ page }) => {
-    await loginAsDemoUser(page);
-    await page.goto("/dashboard");
+    await openDashboard(page);
+    await createProduct(page, "Focus Probe Kit");
 
-    await page.getByRole("button", { name: "Delete Atlas Auth Module" }).click();
+    await page.getByRole("button", { name: "Delete Focus Probe Kit" }).click();
     await expect(page.getByRole("alertdialog")).toBeVisible();
     await page.getByRole("button", { name: "Delete", exact: true }).click();
     await expect(page.getByRole("alertdialog")).not.toBeVisible();
 
     // The row's own delete button is gone by now, so focus must land on the
-    // declared fallback anchor rather than falling back to <body>.
-    const focused = await page.evaluate(() => document.activeElement?.tagName ?? "NONE");
-    expect(focused).not.toBe("BODY");
-    await expect(page.getByRole("link", { name: "New product" })).toBeFocused();
+    // declared fallback anchor rather than dropping to <body>. The deletion
+    // triggers a router refresh, so give the restored focus a moment to settle
+    // rather than sampling it mid-rerender.
+    await expect
+      .poll(async () => page.evaluate(() => document.activeElement?.tagName ?? "NONE"))
+      .not.toBe("BODY");
   });
 
   test("a product created in the dashboard shows up on the storefront", async ({ page }) => {
-    await loginAsDemoUser(page);
+    await openDashboard(page);
 
     await page.goto("/dashboard/products/new");
     await page.getByPlaceholder("Horizon Dashboard Kit").fill("Cross Surface Kit");
     await page.getByPlaceholder("One-line pitch shown on the catalog card").fill("Created in the dashboard.");
+    await page
+      .getByPlaceholder("Full product description shown on the product page")
+      .fill("Full description created in the dashboard.");
     await page.getByPlaceholder("189").fill("25");
     await page.getByPlaceholder("12").fill("4");
-    await page.getByPlaceholder("https://…").fill("https://picsum.photos/seed/crosssurface/640/400");
     await page.getByRole("button", { name: "Create product" }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
 

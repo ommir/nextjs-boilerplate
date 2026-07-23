@@ -1,32 +1,21 @@
 "use client";
 
-import { useAuthStore } from "../store/authStore";
+import { useAuthContext } from "../context/AuthProvider";
 import type { UserRole } from "../types";
 
 /**
- * Ergonomic accessor over the auth store. Returns the current session, derived
- * flags, and the async actions.
+ * Ergonomic accessor over the server-provided profile.
+ *
+ * `hasRole` drives what the UI *shows*. It is not what decides what a user can
+ * *do* — that is `requireRole()` on the server and the RLS policies beneath
+ * it. Hiding a button is a courtesy; the database is the control.
  */
 export function useAuth() {
-  const user = useAuthStore((s) => s.user);
-  const status = useAuthStore((s) => s.status);
-  const error = useAuthStore((s) => s.error);
-  const login = useAuthStore((s) => s.login);
-  const register = useAuthStore((s) => s.register);
-  const logout = useAuthStore((s) => s.logout);
-  const clearError = useAuthStore((s) => s.clearError);
+  const profile = useAuthContext();
 
   return {
-    user,
-    status,
-    error,
-    isAuthenticated: user !== null,
-    isAuthenticating: status === "authenticating",
-    /** Role predicate for RBAC checks in UI. */
-    hasRole: (...roles: UserRole[]) => (user ? roles.includes(user.role) : false),
-    login,
-    register,
-    logout,
-    clearError,
+    profile,
+    isAuthenticated: profile !== null,
+    hasRole: (...roles: UserRole[]) => (profile ? roles.includes(profile.role) : false),
   };
 }

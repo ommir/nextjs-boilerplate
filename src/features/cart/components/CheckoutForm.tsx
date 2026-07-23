@@ -6,6 +6,8 @@ import { Button, Input } from "@/components/ui";
 interface CheckoutFormProps {
   onPlaceOrder: (email: string) => void;
   isSubmitting?: boolean;
+  /** Error returned by the server action (out of stock, unavailable, etc.). */
+  error?: string | null;
 }
 
 /** Simple boundary validation — good enough to demonstrate the pattern, not a full RFC 5322 check. */
@@ -18,7 +20,11 @@ function isValidEmail(value: string): boolean {
  * in a template someone will clone invites it to be wired up as though it
  * were real; this makes the demo boundary explicit instead.
  */
-export function CheckoutForm({ onPlaceOrder, isSubmitting = false }: CheckoutFormProps) {
+export function CheckoutForm({
+  onPlaceOrder,
+  isSubmitting = false,
+  error: serverError = null,
+}: CheckoutFormProps) {
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -49,15 +55,15 @@ export function CheckoutForm({ onPlaceOrder, isSubmitting = false }: CheckoutFor
         />
       </label>
 
-      {error && (
+      {(error ?? serverError) && (
         <p role="alert" className="rounded-sm bg-danger-soft px-3 py-2 text-body-sm text-danger-text">
-          {error}
+          {error ?? serverError}
         </p>
       )}
 
       <div className="rounded-sm bg-surface-muted px-3 py-2.5 text-caption text-ink-muted">
-        Demo checkout. No payment is taken and no card details are collected. Placing an order just clears your
-        cart.
+        Demo checkout. No payment is taken and no card details are collected. Placing an order
+        records it and decrements stock, then clears your cart.
       </div>
 
       <Button type="submit" isLoading={isSubmitting} className="w-full">

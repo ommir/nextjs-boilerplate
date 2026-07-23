@@ -5,9 +5,9 @@ public **storefront** (catalog, product page, cart, checkout) plus an authentica
 **Products CRUD admin**, typed data plumbing, and a fully documented design system —
 so you start from a working foundation, not a blank `app/`.
 
-> **Runs with zero backend.** When `NEXT_PUBLIC_API_URL` is left as the placeholder,
-> every service serves in-memory mock data. Point it at a real API and the same
-> code hits your endpoints.
+> **Runs with zero backend.** Leave the Supabase variables blank and every
+> repository serves in-memory mock data. Fill them in and the same code talks to
+> a real Postgres, with Row Level Security deciding what each user may touch.
 
 ---
 
@@ -18,12 +18,14 @@ so you start from a working foundation, not a blank `app/`.
 | **Framework**     | Next.js 15 (App Router, RSC), React 19, TypeScript (strict)                 |
 | **Styling**       | Tailwind CSS v4 with a token-first `@theme` design system                   |
 | **State**         | Zustand (primary) · Redux Toolkit (optional example) · React Query (server) |
-| **Auth**          | Signed HttpOnly session cookie via Route Handlers, Zustand profile store, middleware + server guard, RBAC |
-| **Storefront**    | Public catalog + filter/search, product page, persisted cart drawer, mock checkout |
-| **Dashboard**     | Products CRUD — sortable table, create/edit forms, delete confirmation, RBAC-gated Settings |
-| **Product data**  | React Query hooks → service → typed models; localStorage-backed mock CRUD; loading / error / empty states |
-| **DX**            | Absolute imports (`@/*`), ESLint, Prettier, typed API client                |
+| **Backend**       | Supabase Postgres — RLS on every table, pgTAP policy tests, forward-only migrations |
+| **Auth**          | Supabase Auth (email + password, confirmation, password reset), Server Actions, JWT-verified guards, RBAC |
+| **Storefront**    | Public catalog + filter/search, product page, persisted cart drawer, transactional checkout |
+| **Dashboard**     | Products CRUD — table, create/edit forms with image upload, delete confirmation, admin-gated |
+| **Data layer**    | Server Components read · Server Actions write · repository interface with Supabase + mock implementations |
+| **DX**            | Absolute imports (`@/*`), ESLint security rules, Prettier, generated DB types |
 | **Design system** | [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md) — the single source of truth for tokens |
+| **Backend docs**  | [`docs/SUPABASE.md`](./docs/SUPABASE.md) — schema, policies, and why they are shaped that way |
 
 ---
 
@@ -33,7 +35,7 @@ so you start from a working foundation, not a blank `app/`.
 # 1. Install dependencies
 npm install
 
-# 2. (optional) configure environment
+# 2. (optional) point at a Supabase project
 cp .env.example .env.local        # runs in mock mode if you skip this
 
 # 3. Start the dev server
@@ -41,10 +43,23 @@ npm run dev                       # http://localhost:3000
 ```
 
 You'll land on the public **storefront** — browse the catalog, open a product,
-add it to cart, and check out (a mock flow — no payment is ever collected).
-Visit `/login` for the admin side: **demo credentials are pre-filled**, and any
-email/password works in mock mode. Signing in lands you on `/dashboard`, the
-Products CRUD admin that manages the same catalog the storefront reads from.
+add it to cart, and check out (no payment is ever collected).
+
+**Mock mode** (no Supabase configured) serves in-memory data and treats you as a
+signed-in admin, so you can explore `/dashboard` immediately. A *production*
+build refuses to start unconfigured — falling back to "everyone is an admin" in
+production would be an authentication bypass, so it is made impossible rather
+than documented as a caveat.
+
+**With Supabase configured**, sign up at `/register`, confirm your email, then
+promote yourself:
+
+```sql
+update public.profiles set role = 'admin' where id = '<your auth uid>';
+```
+
+See [`docs/SUPABASE.md`](./docs/SUPABASE.md) for the schema, the policy model,
+and the reasoning behind both.
 
 ### Scripts
 
@@ -56,6 +71,12 @@ Products CRUD admin that manages the same catalog the storefront reads from.
 | `npm run lint`      | ESLint                               |
 | `npm run typecheck` | `tsc --noEmit`                       |
 | `npm run format`    | Prettier write                       |
+| `npm run test`      | Unit + component tests (Vitest)      |
+| `npm run test:e2e`  | End-to-end tests (Playwright)        |
+| `npm run db:reset`  | Replay migrations + seed (needs Docker) |
+| `npm run db:test`   | pgTAP RLS policy suites (needs Docker)  |
+| `npm run db:types`  | Regenerate `database.types.ts`       |
+| `npm run db:push`   | Apply pending migrations to the linked project |
 
 ---
 

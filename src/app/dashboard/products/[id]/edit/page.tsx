@@ -1,23 +1,39 @@
-"use client";
-
-import { use } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { ErrorState, LoadingState } from "@/components/ui";
 import { ProductForm } from "@/features/product/components/ProductForm";
-import { useProduct, useUpdateProduct } from "@/features/product/hooks/useProducts";
-import type { ProductInput } from "@/features/product/types";
+import { updateProductAction } from "@/features/product/actions/productActions";
+import { getProductRepository } from "@/features/product/repositories/productRepository";
 
-export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  const router = useRouter();
-  const { data: product, isLoading, isError, refetch } = useProduct(id);
-  const updateProduct = useUpdateProduct(id);
+/**
+ * Rendered per request.
+ *
+ * These pages read mutable data (catalog, stock levels). With Supabase
+ * configured they are dynamic anyway, because resolving the session touches
+ * cookies. In mock mode nothing touches cookies, so Next would happily
+ * prerender them at build time and then serve a catalog frozen at build —
+ * every create/edit/delete invisible until the next deploy. Stating it
+ * explicitly makes both modes behave the same.
+ */
+export const dynamic = "force-dynamic";
 
-  async function handleSubmit(input: ProductInput) {
-    await updateProduct.mutateAsync(input);
-    router.push("/dashboard");
+// Admin access is enforced by the dashboard layout; updateProductAction
+// re-checks it independently.
+export default async function EditProductPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const product = await getProductRepository().getById(id);
+
+  if (!product) notFound();
+
+  async function action(formData: FormData) {
+    "use server";
+    const result = await updateProductAction(id, formData);
+    if (result.ok) redirect("/dashboard");
+    return result;
   }
 
   return (
@@ -30,28 +46,12 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         Back to products
       </Link>
 
-      {isLoading ? (
-        <LoadingState label="Loading product…" />
-      ) : isError || !product ? (
-        <ErrorState
-          title="Product unavailable"
-          description="This product could not be loaded."
-          onRetry={() => refetch()}
-        />
-      ) : (
-        <>
-          <div>
-            <h1 className="text-display text-ink">Edit product</h1>
-            <p className="mt-1 text-body-sm text-ink-secondary">{product.name}</p>
-          </div>
-          <ProductForm
-            initialValue={product}
-            onSubmit={handleSubmit}
-            submitLabel="Save changes"
-            isSubmitting={updateProduct.isPending}
-          />
-        </>
-      )}
+      <div>
+        <h1 className="text-display text-ink">Edit product</h1>
+        <p className="mt-1 text-body-sm text-ink-secondary">{product.name}</p>
+      </div>
+
+      <ProductForm initialValue={product} action={action} submitLabel="Save changes" />
     </div>
   );
 }

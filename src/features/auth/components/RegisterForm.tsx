@@ -1,60 +1,45 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useActionState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { AtSign, Lock, User as UserIcon } from "lucide-react";
+import { AtSign, CheckCircle2, Lock, User as UserIcon } from "lucide-react";
 import { Button, Input } from "@/components/ui";
-import { siteConfig } from "@/config/site";
-import { useAuth } from "../hooks/useAuth";
+import { signUpAction } from "../actions/authActions";
+import type { AuthActionResult } from "../types";
 
-const MIN_PASSWORD_LENGTH = 8;
+type State = AuthActionResult | null;
 
 export function RegisterForm() {
-  const router = useRouter();
-  const { register, isAuthenticating, error, clearError } = useAuth();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [localError, setLocalError] = useState<string | null>(null);
+  const [state, formAction, isPending] = useActionState<State, FormData>(
+    (_previous, formData) => signUpAction(formData),
+    null,
+  );
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setLocalError(null);
-
-    // Validate at the boundary before hitting the service.
-    if (name.trim().length < 2) {
-      setLocalError("Please enter your full name.");
-      return;
-    }
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      setLocalError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
-      return;
-    }
-
-    try {
-      await register({ name: name.trim(), email, password });
-      router.push(siteConfig.homeUrl);
-    } catch {
-      // Surfaced via store error.
-    }
+  // Sign-up ends at "check your email", not at a session — the account is not
+  // usable until the address is confirmed.
+  if (state?.ok) {
+    return (
+      <div className="flex flex-col items-center gap-3 text-center">
+        <span className="flex size-11 items-center justify-center rounded-pill bg-success-soft text-success-text">
+          <CheckCircle2 className="size-5" aria-hidden />
+        </span>
+        <h2 className="text-body font-semibold text-ink">Almost there</h2>
+        <p className="text-body-sm text-ink-secondary">{state.message}</p>
+        <Link href="/login" className="mt-1 text-body-sm font-semibold text-ink hover:underline">
+          Back to sign in
+        </Link>
+      </div>
+    );
   }
 
-  const shownError = localError ?? error;
-
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+    <form action={formAction} className="flex flex-col gap-4" noValidate>
       <label className="flex flex-col gap-1.5">
         <span className="text-body-sm font-semibold text-ink">Full name</span>
         <Input
+          name="name"
           autoComplete="name"
           placeholder="Ada Lovelace"
-          value={name}
-          onChange={(e) => {
-            setName(e.target.value);
-            clearError();
-            setLocalError(null);
-          }}
           leading={<UserIcon className="size-4" />}
           required
         />
@@ -63,14 +48,10 @@ export function RegisterForm() {
       <label className="flex flex-col gap-1.5">
         <span className="text-body-sm font-semibold text-ink">Email</span>
         <Input
+          name="email"
           type="email"
           autoComplete="email"
           placeholder="you@company.com"
-          value={email}
-          onChange={(e) => {
-            setEmail(e.target.value);
-            clearError();
-          }}
           leading={<AtSign className="size-4" />}
           required
         />
@@ -79,27 +60,22 @@ export function RegisterForm() {
       <label className="flex flex-col gap-1.5">
         <span className="text-body-sm font-semibold text-ink">Password</span>
         <Input
+          name="password"
           type="password"
           autoComplete="new-password"
-          placeholder="At least 8 characters"
-          value={password}
-          onChange={(e) => {
-            setPassword(e.target.value);
-            clearError();
-            setLocalError(null);
-          }}
+          placeholder="At least 10 characters"
           leading={<Lock className="size-4" />}
           required
         />
       </label>
 
-      {shownError && (
+      {state && !state.ok && (
         <p className="rounded-sm bg-danger-soft px-3 py-2 text-body-sm text-danger-text" role="alert">
-          {shownError}
+          {state.error}
         </p>
       )}
 
-      <Button type="submit" isLoading={isAuthenticating} className="mt-1 w-full">
+      <Button type="submit" isLoading={isPending} className="mt-1 w-full">
         Create account
       </Button>
 
